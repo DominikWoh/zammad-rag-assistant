@@ -99,16 +99,12 @@ EOF
 
 docker compose --env-file <(echo "QDRANT_API_KEY=${QDRANT_API_KEY}") -f docker-compose.yml up -d
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-echo "[4/8] Warte auf Ollama-Start & lade Modell..."
-sleep 20
-docker exec ollama ollama pull granite3.3 || echo "â— Modell konnte nicht geladen werden"
+# ───────────────────────────────────────────────────────────────
+echo "[4/8] Konfiguration & .env-Datei schreiben..."
+read -p "🤖 Ollama-Modell (z. B. gemma3n:latest): " OLLAMA_MODEL
+read -p "📁 Name der Qdrant-Collection: " COLLECTION_NAME
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-echo "[5/8] Konfiguration & .env-Datei schreiben..."
-read -p "ðŸ¤– Ollama-Modell (z.â€¯B. gemma3n:latest): " OLLAMA_MODEL
-read -p "ðŸ“ Name der Qdrant-Collection: " COLLECTION_NAME
-
+# .env schreiben
 cat > "$ENV_FILE" <<EOF
 QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=${QDRANT_API_KEY}
@@ -120,7 +116,13 @@ ZAMMAD_TOKEN=${ZAMMAD_TOKEN}
 EOF
 
 chmod 600 "$ENV_FILE"
-echo "ðŸ” .env gespeichert unter $ENV_FILE"
+echo "🔐 .env gespeichert unter $ENV_FILE"
+
+# ───────────────────────────────────────────────────────────────
+echo "[5/8] Warte auf Ollama-Start & lade Modell '$OLLAMA_MODEL'..."
+sleep 20
+docker exec ollama ollama pull "$OLLAMA_MODEL" || echo "❌ Modell konnte nicht geladen werden"
+
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[6/8] Python-Umgebung vorbereiten..."
