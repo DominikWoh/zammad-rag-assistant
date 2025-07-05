@@ -1,0 +1,247 @@
+import os
+import time
+import json
+import re
+import requests
+from datetime import datetime, timedelta, timezone
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from qdrant_client import QdrantClient, models
+from qdrant_client.models import VectorParams, Distance
+from sentence_transformers import SentenceTransformer
+
+# ---- ENV laden ----
+load_dotenv("/opt/ai-suite/ticket_ingest.env")
+
+ZAMMAD_URL = os.getenv("ZAMMAD_URL")
+ZAMMAD_TOKEN = os.getenv("ZAMMAD_TOKEN")
+QDRANT_URL = os.getenv("QDRANT_URL")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+OLLAMA_URL = os.getenv("OLLAMA_URL")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
+COLLECTION_NAME = os.getenv("COLLECTION_NAME")
+EMBED_MODEL = "intfloat/multilingual-e5-base"
+MAX_TICKETS = 2000
+MIN_TICKET_DATE = datetime(2025, 1, 1, tzinfo=timezone.utc)
+MAX_ATTEMPTS = 1
+
+client = QdrantClient(QDRANT_URL, api_key=QDRANT_API_KEY)
+model = SentenceTransformer(EMBED_MODEL)
+
+# ---- COLLECTION NEU ANLEGEN ----
+print(f"🛠️ Lösche und erstelle Collection '{COLLECTION_NAME}' komplett neu ...")
+client.recreate_collection(
+    collection_name=COLLECTION_NAME,
+    vectors_config={
+        "kurzbeschreibung": VectorParams(size=768, distance=Distance.COSINE),
+        "beschreibung": VectorParams(size=768, distance=Distance.COSINE),
+        "loesung": VectorParams(size=768, distance=Distance.COSINE),
+        "all": VectorParams(size=768, distance=Distance.COSINE),
+    }
+)
+print("✅ Collection bereit.")
+
+def html_to_text(html):
+    soup = BeautifulSoup(html, "html.parser")
+    for bq in soup.find_all("blockquote"):
+        bq.decompose()
+    for img in soup.find_all("img"):
+        img.replace_with("[Bildanhang entfernt]")
+    lines = soup.get_text(separator="\n").splitlines()
+    return [line.strip() for line in lines if line.strip()]
+
+def call_llm(prompt, max_tokens=900, temperature=0.1, max_attempts=MAX_ATTEMPTS):
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": [
+            {"role": "system", "content": "Du bist ein IT-Wissensdatenbank-Experte."},
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature
+    }
+    for attempt in range(max_attempts):
+        try:
+            res = requests.post(OLLAMA_URL, headers=headers, json=payload, timeout=600)
+            res.raise_for_status()
+            return res.json()['choices'][0]['message']['content'].strip()
+        except Exception as e:
+            print(f"⚠️ LLM-Fehler (Versuch {attempt+1}): {e}")
+            time.sleep(2)
+    return None
+
+def clean_llm_json_answer(answer):
+    cleaned = re.sub(r"```[a-z]*\n?", "", answer, flags=re.IGNORECASE).strip()
+    return re.sub(r"```", "", cleaned).strip()
+
+def is_ticket_helpful(ticket):
+    print(ticket['full_text'])
+    prompt = f"""
+Du bist IT-Support-Experte. Antworte mit JA oder NEIN:
+Enthält dieses Ticket eine Lösung, einen Workaround oder wichtige Hinweise zur Fehlerursache?
+---
+{ticket['full_text']}
+"""
+    for attempt in range(MAX_ATTEMPTS):
+        answer = call_llm(prompt, max_tokens=5, temperature=0.0)
+        if answer:
+            answer = answer.strip().upper()
+            if answer == "JA":
+                print("➡️ Ticket ist hilfreich.")
+                return True
+            if answer == "NEIN":
+                print("➡️ Ticket ist nicht hilfreich.")
+                return False
+        time.sleep(1)
+    return False
+
+def summarize_ticket_to_json(ticket):
+    prompt = f"""
+Extrahiere folgendes Ticket als JSON:
+---
+{ticket['full_text']}
+---
+Struktur:
+{{
+  "ersteller": "Max Mustermann",
+  "erstelldatum": "2024-06-01",
+  "kategorie": "Software",
+  "kurzbeschreibung": "Outlook startet nicht",
+  "beschreibung": "Fehlercode 0x800123...",
+  "loesung": "Datei verschoben, PC neu gestartet...",
+  "system": "Windows 10, Outlook 365",
+  "tags": ["Outlook", "E-Mail"]
+}}
+"""
+    for attempt in range(MAX_ATTEMPTS):
+        answer = call_llm(prompt)
+        if not answer:
+            return None
+        cleaned = clean_llm_json_answer(answer)
+        try:
+            fields = json.loads(cleaned)
+            return fields if all(k in fields for k in [
+                "ersteller", "erstelldatum", "kategorie",
+                "kurzbeschreibung", "beschreibung", "loesung",
+                "system", "tags"
+            ]) else None
+        except Exception as e:
+            print("⚠️ JSON-Parsing-Fehler:", e)
+    return None
+
+def get_ticket_fulltext(ticket_id):
+    headers = {"Authorization": f"Token token={ZAMMAD_TOKEN}"}
+    res = requests.get(f"{ZAMMAD_URL}/api/v1/ticket_articles/by_ticket/{ticket_id}", headers=headers)
+    if res.status_code != 200:
+        return ""
+    texts = []
+    for a in res.json():
+        html_body = a.get("body", "")
+        texts.extend(html_to_text(html_body))
+    return " ".join(texts)
+
+def build_ticket_for_llm(ticket):
+    ticket_id = ticket.get("id", "")
+    ersteller = str(ticket.get("created_by_id", ""))
+    erstelldatum = ticket.get("created_at", "")[:10]
+    kategorie = ticket.get("group", None) or ticket.get("group_id", "")
+    title = ticket.get("title", "")
+    full_text = get_ticket_fulltext(ticket_id)
+    return {
+        "id": ticket_id,
+        "full_text": f"Ersteller: {ersteller}\nErstelldatum: {erstelldatum}\nKategorie: {kategorie}\nTitel: {title}\n{full_text}"
+    }
+
+def process_and_store_ticket(ticket, point_id):
+    print(f"\n--- [{point_id}] Bearbeite Ticket ID: {ticket.get('id', point_id)} ---")
+    if not is_ticket_helpful(ticket):
+        return
+    fields = summarize_ticket_to_json(ticket)
+    if not fields or not fields.get("loesung"):
+        return
+    kurz = f"Kurzbeschreibung: {fields.get('kurzbeschreibung', '').strip()}"
+    beschr = f"Beschreibung: {fields.get('beschreibung', '').strip()}"
+    loesg = f"Lösung: {fields.get('loesung', '').strip()}"
+    system = f"System: {fields.get('system', '').strip()}"
+    kategorie = f"Kategorie: {fields.get('kategorie', '').strip()}"
+    tags_text = ", ".join(fields.get("tags", []))
+    alle = "\n".join([kurz, beschr, loesg, system, kategorie, f"Tags: {tags_text}"])
+    emb = {
+        "kurzbeschreibung": model.encode(kurz, normalize_embeddings=True).tolist(),
+        "beschreibung": model.encode(beschr, normalize_embeddings=True).tolist(),
+        "loesung": model.encode(loesg, normalize_embeddings=True).tolist(),
+        "all": model.encode(alle, normalize_embeddings=True).tolist(),
+    }
+    client.upsert(
+        collection_name=COLLECTION_NAME,
+        points=[models.PointStruct(
+            id=point_id,
+            vector=emb,
+            payload={
+                "ticket_id": ticket.get('id'),
+                **fields,
+                "has_loesung": True,
+                "is_relevant": True
+            }
+        )]
+    )
+    print(f"✅ Ticket {ticket.get('id', point_id)} gespeichert.")
+
+def fetch_and_process_zammad_tickets():
+    headers = {"Authorization": f"Token token={ZAMMAD_TOKEN}"}
+    point_id = 1
+    page = 1
+    total = 0
+    print("⏳ Starte Ticket-Import & Verarbeitung ...")
+    while True:
+        print(f"🌐 Lade Seite {page} ...")
+        try:
+            res = requests.get(
+                f"{ZAMMAD_URL}/api/v1/tickets?per_page=100&page={page}&order_by=created_at:desc",
+                headers=headers
+            )
+            res.raise_for_status()
+            page_data = res.json()
+        except Exception as e:
+            print(f"❌ Fehler bei Ticket-Liste (Seite {page}): {e}")
+            break
+        if not page_data:
+            break
+        for stub in page_data:
+            ticket_id = stub.get("id")
+            if not ticket_id:
+                continue
+            try:
+                res_detail = requests.get(f"{ZAMMAD_URL}/api/v1/tickets/{ticket_id}", headers=headers)
+                res_detail.raise_for_status()
+                t = res_detail.json()
+            except Exception as e:
+                print(f"⚠️ Fehler bei Ticket {ticket_id}: {e}")
+                continue
+            updated_str = t.get("created_at", "").replace("Z", "+00:00")
+            try:
+                updated = datetime.fromisoformat(updated_str)
+            except:
+                continue
+            if updated < MIN_TICKET_DATE:
+                continue
+            state_id = t.get("state_id")
+            try:
+                state_res = requests.get(f"{ZAMMAD_URL}/api/v1/ticket_states/{state_id}", headers=headers)
+                state_name = state_res.json().get("name", "").lower()
+            except:
+                continue
+            if state_name not in ["closed", "closed successful", "closed_unsuccessful", "archived", "geschlossen"]:
+                continue
+            if updated > datetime.now(timezone.utc) - timedelta(days=14):
+                continue
+            ticket_llm = build_ticket_for_llm(t)
+            process_and_store_ticket(ticket_llm, point_id)
+            point_id += 1
+            total += 1
+        page += 1
+    print(f"\n🏁 Fertig! {total} Tickets verarbeitet.")
+
+# 🔄 START
+fetch_and_process_zammad_tickets()
