@@ -29,6 +29,7 @@ Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zam
 
 Um eine optimale Leistung zu gewährleisten, sind folgende Systemanforderungen erforderlich:
 
+- **Betriebssystem**: Ubuntu Server (empfohlen: Ubuntu 20.04 LTS oder neuer)
 - **CPU**: Mindestens 10 Threads (empfohlen: >12 Threads)
 - **RAM**: Mindestens 16 GB (empfohlen: >20 GB)
 - **Speicherplatz**: Mindestens 30 GB freier Speicher (empfohlen: >30 GB)
