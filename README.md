@@ -103,5 +103,5 @@ sudo systemctl status zammad_rag_service.service
 
 ## Hinweis
 
-Der Zammad RAG Assistant ist bereits funktionsfähig und bietet eine Grundlage für den automatisierten IT-Support. Es wird jedoch weiterhin an der Verbesserung der Leistung / Stabilität und der Erweiterung der Funktionalitäten gearbeitet. Einige Features und Integrationen befinden sich noch in der Entwicklung und könnten in zukünftigen Versionen weiter optimiert werden. Dein Feedback ist willkommen, um das System noch weiter zu verbessern.
+Der Zammad RAG Assistant ist bereits funktionsfähig und bietet eine Grundlage für den automatisierten IT-Support. Es wird jedoch weiterhin an der Verbesserung der Leistung / Stabilität und der Erweiterung der Funktionalitäten gearbeitet. Einige Features und Integrationen befinden sich noch in der Entwicklung und könnten in zukünftigen Versionen weiter optimiert werden. Dein Feedback ist willkommen, um das System noch weiter zu verbessern. Ihr könnt es gerne kopieren und verbessern und ändern.
 
