@@ -10,6 +10,11 @@ Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zam
 - **LLM-gestützte Ticketbearbeitung**: Wenn keine ausreichenden Antworten gefunden werden, nutzt das System ein lokales LLM-Modell, um mögliche Lösungen vorzuschlagen.
 - **Integration mit Zammad**: Integriert sich mit Zammad, um Tickets abzurufen, mit LLM-Antworten zu aktualisieren und Daten zu verarbeiten.
 
+<p float="left">
+  <img src="./AskAI.png" width="500" />
+  <img src="./Zammad-RAG-Antwort.png" width="500" />
+</p>
+
 ## Installation
 
 ### Voraussetzungen
