@@ -10,9 +10,8 @@ ENV_FILE="$INSTALL_DIR/ticket_ingest.env"
 PYTHON_ENV="$INSTALL_DIR/venv"
 ZAMMAD_DOCKER_PATH="/opt/zammad-docker"
 
-echo "ðŸ“¦ Starte vollstÃ¤ndiges Setup inkl. AI-Stack und (optional) Zammad ..."
+echo "📦 Starte vollständiges Setup inkl. AI-Stack und (optional) Zammad ..."
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[0/8] Docker & Compose installieren..."
 apt install -y \
   curl git apt-transport-https ca-certificates software-properties-common gnupg lsb-release
@@ -25,7 +24,6 @@ echo \
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[1/8] System vorbereiten (Upgrade & Cleanup)..."
 apt update && apt upgrade -y
 
@@ -35,22 +33,20 @@ docker system prune -af
 docker volume prune -f
 rm -rf "$INSTALL_DIR" "$ZAMMAD_DOCKER_PATH"
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[2/8] Zammad optional installieren..."
-read -p "â“ MÃ¶chtest du Zammad mit Docker installieren? (y/n): " INSTALL_ZAMMAD
+read -p "❓ Möchtest du Zammad mit Docker installieren? (y/n): " INSTALL_ZAMMAD
 if [[ "$INSTALL_ZAMMAD" =~ ^[Yy]$ ]]; then
   git clone https://github.com/zammad/zammad-docker-compose.git "$ZAMMAD_DOCKER_PATH"
   cd "$ZAMMAD_DOCKER_PATH"
   docker compose up -d
-  echo "â³ Zammad gestartet unter http://localhost:8080"
+  echo "⏳ Zammad gestartet unter http://localhost:8080"
   ZAMMAD_URL="http://localhost:8080"
-  read -p "ðŸ”‘ Bitte gib dein Zammad API-Token ein: " ZAMMAD_TOKEN
+  read -p "🔑 Bitte gib dein Zammad API-Token ein: " ZAMMAD_TOKEN
 else
-  read -p "ðŸŒ Zammad-URL (z.â€¯B. http://it.local:8080): " ZAMMAD_URL
-  read -p "ðŸ”‘ Zammad API-Token: " ZAMMAD_TOKEN
+  read -p "🌐 Zammad-URL (z. B. http://it.local:8080): " ZAMMAD_URL
+  read -p "🔑 Zammad API-Token: " ZAMMAD_TOKEN
 fi
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[3/8] AI-Umgebung vorbereiten (Qdrant, Ollama, OpenWebUI)..."
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
@@ -99,32 +95,30 @@ EOF
 
 docker compose --env-file <(echo "QDRANT_API_KEY=${QDRANT_API_KEY}") -f docker-compose.yml up -d
 
-# ───────────────────────────────────────────────────────────────
+# IP ermitteln, die für alle Container genutzt wird
+IP=$(hostname -I | awk '{print $1}')
+
 echo "[4/8] Konfiguration & .env-Datei schreiben..."
 read -p "🤖 Ollama-Modell (z. B. gemma3n:latest): " OLLAMA_MODEL
 read -p "📁 Name der Qdrant-Collection: " COLLECTION_NAME
 
-# .env schreiben
 cat > "$ENV_FILE" <<EOF
-QDRANT_URL=http://localhost:6333
+QDRANT_URL=http://$IP:6333
 QDRANT_API_KEY=${QDRANT_API_KEY}
-OLLAMA_URL=http://localhost:11434/api/chat
+OLLAMA_URL=http://$IP:11434/api/chat
 OLLAMA_MODEL=${OLLAMA_MODEL}
 COLLECTION_NAME=${COLLECTION_NAME}
-ZAMMAD_URL=${ZAMMAD_URL}
+ZAMMAD_URL=${ZAMMAD_URL/localhost/$IP}
 ZAMMAD_TOKEN=${ZAMMAD_TOKEN}
 EOF
 
 chmod 600 "$ENV_FILE"
 echo "🔐 .env gespeichert unter $ENV_FILE"
 
-# ───────────────────────────────────────────────────────────────
 echo "[5/8] Warte auf Ollama-Start & lade Modell '$OLLAMA_MODEL'..."
 sleep 20
 docker exec ollama ollama pull "$OLLAMA_MODEL" || echo "❌ Modell konnte nicht geladen werden"
 
-
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[6/8] Python-Umgebung vorbereiten..."
 apt install -y python3 python3-pip python3-venv
 
@@ -132,10 +126,8 @@ python3 -m venv "$PYTHON_ENV"
 source "$PYTHON_ENV/bin/activate"
 pip install --upgrade pip
 
-# Projekt klonen
 git clone "$REPO_URL" "$PROJECT_PATH"
 
-# Requirements erzeugen
 cat > "$PROJECT_PATH/requirements.txt" <<EOF
 python-dotenv
 requests
@@ -147,32 +139,27 @@ EOF
 pip install -r "$PROJECT_PATH/requirements.txt"
 deactivate
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-echo "[7/8] Starte Script jetzt sofort..."
-"$PYTHON_ENV/bin/python" "$SCRIPT_PATH"
-
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-echo "[8/8] Cronjob einrichten fÃ¼r tÃ¤gliche AusfÃ¼hrung (01:00 Uhr)..."
+echo "[7/8] Cronjob einrichten für tägliche Ausführung (01:00 Uhr)..."
 CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qdrant.log 2>&1"
 ( crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" ; echo "$CRON_JOB" ) | crontab -
 
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-# Optional: Firewall Ã¶ffnen
 if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
-  echo "ðŸŒ Ã–ffne Firewall fÃ¼r relevante Ports ..."
+  echo "🌐 Öffne Firewall für relevante Ports ..."
   ufw allow 8080/tcp
   ufw allow 3000/tcp
   ufw allow 11434/tcp
   ufw allow 6333/tcp
 fi
 
-IP=$(hostname -I | awk '{print $1}')
 echo ""
-echo "âœ… Setup abgeschlossen!"
+echo "✅ Setup abgeschlossen!"
 echo "Zammad:       http://$IP:8080"
 echo "OpenWebUI:    http://$IP:3000"
 echo "Ollama API:   http://$IP:11434"
-echo "Qdrant API:   http://$IP:6333"
+echo "Qdrant API:   http://$IP:6333/Dashboard"
 echo "Collection:   $COLLECTION_NAME"
 echo "Script-Log:   /var/log/zammad_to_qdrant.log"
 echo "Qdrant API-Key:     $QDRANT_API_KEY"
+
+echo "[8/8] Starte Script jetzt sofort..."
+"$PYTHON_ENV/bin/python" "$SCRIPT_PATH"
