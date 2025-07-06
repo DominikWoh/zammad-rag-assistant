@@ -3,6 +3,7 @@
 
 ## Setup
 ```
+apt install curl -y
 curl -O https://raw.githubusercontent.com/DominikWoh/zammad-rag-assistant/main/setup.sh
 chmod +x setup.sh
 ./setup.sh     # Ausführen
