@@ -4,7 +4,9 @@ Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zam
 
 ## Features
 
+- **Simple und schnelle Installation**: Ready to Start Script, in 10 Minuten ist alles Installiert und eingerichtet.
 - **Automatisierte Ticketverarbeitung**: Der Assistent verarbeitet automatisch neue und offene Zammad-Tickets.
+- **AskKI Abfrage möglich**: Verwende "AskKi" in deiner Notiz und erhalte eine Antwort vom LLM.
 - **Abfrage-Erweiterung**: Die Benutzereingabe wird durch ein LLM (über Ollama) erweitert, um mehrere Varianten einer Abfrage zu generieren und die Suchergebnisse zu verbessern.
 - **Vektor-Suche mit Qdrant**: Verwendet eine vektorbasierte Suche, um relevantes Wissen und bereits gelöste Tickets zu finden, die bei neuen Tickets helfen.
 - **LLM-gestützte Ticketbearbeitung**: Wenn keine ausreichenden Antworten gefunden werden, nutzt das System ein lokales LLM-Modell, um mögliche Lösungen vorzuschlagen.
@@ -58,6 +60,20 @@ chmod +x setup.sh
 
 1. **Umgebungsvariablen**: Die `.env`-Datei enthält Konfigurationen für die Zammad-Instanz, API-Tokens und Modell-Einstellungen. Sie wird während des Setups automatisch erstellt.
 2. **Modelle**: Das System verwendet ein benutzerdefiniertes LLM-Modell, das über Ollama gehostet wird, sowie ein vordefiniertes Vektor-Einbettungsmodell (`intfloat/multilingual-e5-base`) für die Vektor-Suche.
+
+## Hilfe
+
+**Ich habe bereits ein Zammad Ticket System**
+Sehr gut, erstelle vor ab einen neuen (KI) User in Zammad, melde dich als diesen User an, gehe auf Profil und erstelle einen Token. Diesen kannst du dann bei der Installation angeben.
+
+**Ich habe noch kein Zammad im Einsatz**
+Wir installieren für dich Zammad gleich mit, jedoch musst du bei der Token- und Urlabfrage kurz warten bis Zammad erreichbar ist dann einen neuen Benutzer anlegen und den Token eingeben.
+
+**Wann werden die Tickets indexiert**
+Die Tickets werden indexiert wenn diese 14 Tage geschlossen sind, das hat sich bei mir bewährt.
+
+**Wie hilft die KI mir**
+Die KI durchsucht automatisch alle indexierten Tickets, übergibt diese an die KI und diese wiederum denkt nach und gibt dir basierend auf alten Tickets mögliche Lösungen 
 
 ## Den Service ausführen
 
