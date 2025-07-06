@@ -13,17 +13,7 @@ ZAMMAD_DOCKER_PATH="/opt/zammad-docker"
 echo "ðŸ“¦ Starte vollstÃ¤ndiges Setup inkl. AI-Stack und (optional) Zammad ..."
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-echo "[0/8] System vorbereiten (Upgrade & Cleanup)..."
-apt update && apt upgrade -y
-
-echo "[0/8] Stoppe & bereinige alte Docker-Container..."
-docker container stop $(docker ps -aq) 2>/dev/null || true
-docker system prune -af
-docker volume prune -f
-rm -rf "$INSTALL_DIR" "$ZAMMAD_DOCKER_PATH"
-
-# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-echo "[1/8] Docker & Compose installieren..."
+echo "[0/8] Docker & Compose installieren..."
 apt install -y \
   curl git apt-transport-https ca-certificates software-properties-common gnupg lsb-release
 
@@ -34,6 +24,16 @@ echo \
 
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+echo "[1/8] System vorbereiten (Upgrade & Cleanup)..."
+apt update && apt upgrade -y
+
+echo "[0/8] Stoppe & bereinige alte Docker-Container..."
+docker container stop $(docker ps -aq) 2>/dev/null || true
+docker system prune -af
+docker volume prune -f
+rm -rf "$INSTALL_DIR" "$ZAMMAD_DOCKER_PATH"
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 echo "[2/8] Zammad optional installieren..."
