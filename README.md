@@ -5,6 +5,5 @@
 ```
 curl -O https://raw.githubusercontent.com/DominikWoh/zammad-rag-assistant/main/setup.sh
 chmod +x setup.sh
-nano setup.sh  # Inhalt ansehen oder mit einem Editor deiner Wahl
 ./setup.sh     # Ausführen
 ```
