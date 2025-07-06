@@ -30,16 +30,21 @@ MAX_ATTEMPTS = 1
 client = QdrantClient(QDRANT_URL, api_key=QDRANT_API_KEY)
 model = SentenceTransformer(EMBED_MODEL)
 
-print(f"🗑️ Lösche und erstelle Collection '{COLLECTION_NAME}' komplett neu ...")
-client.recreate_collection(
-    collection_name=COLLECTION_NAME,
-    vectors_config={
-        "kurzbeschreibung": VectorParams(size=768, distance=Distance.COSINE),
-        "beschreibung": VectorParams(size=768, distance=Distance.COSINE),
-        "lösung": VectorParams(size=768, distance=Distance.COSINE),
-        "all": VectorParams(size=768, distance=Distance.COSINE),
-    }
-)
+if not client.collection_exists(collection_name=COLLECTION_NAME):
+    print(f"📦 Erstelle Collection '{COLLECTION_NAME}' ...")
+    client.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config={
+            "kurzbeschreibung": VectorParams(size=768, distance=Distance.COSINE),
+            "beschreibung": VectorParams(size=768, distance=Distance.COSINE),
+            "lösung": VectorParams(size=768, distance=Distance.COSINE),
+            "all": VectorParams(size=768, distance=Distance.COSINE),
+        }
+    )
+    print("Collection wurde neu erstellt.")
+else:
+    print(f"📦 Collection '{COLLECTION_NAME}' existiert bereits.")
+
 print("Collection Info:", client.get_collection(COLLECTION_NAME))
 
 
