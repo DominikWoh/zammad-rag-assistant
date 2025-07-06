@@ -11,6 +11,7 @@ Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zam
 - **Vektor-Suche mit Qdrant**: Verwendet eine vektorbasierte Suche, um relevantes Wissen und bereits gelöste Tickets zu finden, die bei neuen Tickets helfen.
 - **LLM-gestützte Ticketbearbeitung**: Wenn keine ausreichenden Antworten gefunden werden, nutzt das System ein lokales LLM-Modell, um mögliche Lösungen vorzuschlagen.
 - **Integration mit Zammad**: Integriert sich mit Zammad, um Tickets abzurufen, mit LLM-Antworten zu aktualisieren und Daten zu verarbeiten.
+- **Datenschutzkonform**: Läuft komplett Lokal und nach Installation ohne Internetzugang
 
 <p float="left">
   <img src="./AskAI.png" width="400" />
