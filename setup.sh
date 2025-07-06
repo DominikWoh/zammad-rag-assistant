@@ -161,5 +161,36 @@ echo "Collection:   $COLLECTION_NAME"
 echo "Script-Log:   /var/log/zammad_to_qdrant.log"
 echo "Qdrant API-Key:     $QDRANT_API_KEY"
 
-echo "[8/8] Starte Script jetzt sofort..."
+
+echo "[8/8] Erstellen des KI Services:"
+
+cat > /etc/systemd/system/zammad_rag_service.service <<EOF
+[Unit]
+Description=Zammad RAG Assistant Service
+After=network.target
+
+[Service]
+ExecStart=$PYTHON_ENV/bin/python $SCRIPT_PATH
+WorkingDirectory=$INSTALL_DIR
+EnvironmentFile=$ENV_FILE
+Restart=always
+#User=root
+#Group=root
+TimeoutSec=120
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Berechtigungen setzen
+chmod 644 /etc/systemd/system/zammad_rag_service.service
+chmod +x /opt/ai-suite/zammad-rag-assistant/ZammadToQdrant.py
+
+# Service aktivieren und starten
+systemctl daemon-reload
+systemctl enable zammad_rag_service.service
+systemctl start zammad_rag_service.service
+
+
+echo "[9/8] Starte Script jetzt sofort..."
 "$PYTHON_ENV/bin/python" "$SCRIPT_PATH"
