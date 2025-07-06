@@ -99,6 +99,7 @@ sudo systemctl enable zammad_rag_service.service
 
 # Dienststatus anzeigen
 sudo systemctl status zammad_rag_service.service
+```
 
 ## Hinweis
 
