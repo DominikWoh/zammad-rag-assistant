@@ -162,35 +162,14 @@ echo "Script-Log:   /var/log/zammad_to_qdrant.log"
 echo "Qdrant API-Key:     $QDRANT_API_KEY"
 
 
-echo "[8/8] Erstellen des KI Services:"
+echo "[8/8] Cronjob für ZammadToQdrant.py hinzufügen und Skript sofort ausführen:"
 
-cat > /etc/systemd/system/zammad_rag_service.service <<EOF
-[Unit]
-Description=Zammad RAG Assistant Service
-After=network.target
+# Cronjob für das ZammadToQdrant.py Skript einrichten
+CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qdrant.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" ; echo "$CRON_JOB" ) | crontab -
 
-[Service]
-ExecStart=$PYTHON_ENV/bin/python $SCRIPT_PATH
-WorkingDirectory=$INSTALL_DIR
-EnvironmentFile=$ENV_FILE
-Restart=always
-#User=root
-#Group=root
-TimeoutSec=120
+# Sofortige Ausführung von ZammadToQdrant.py
+echo "🔄 Führe ZammadToQdrant.py jetzt sofort aus ..."
+$PYTHON_ENV/bin/python "$SCRIPT_PATH"
 
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Berechtigungen setzen
-chmod 644 /etc/systemd/system/zammad_rag_service.service
-chmod +x /opt/ai-suite/zammad-rag-assistant/ZammadToQdrant.py
-
-# Service aktivieren und starten
-systemctl daemon-reload
-systemctl enable zammad_rag_service.service
-systemctl start zammad_rag_service.service
-
-
-echo "[9/8] Starte Script jetzt sofort..."
-"$PYTHON_ENV/bin/python" "$SCRIPT_PATH"
+echo "✅ Skript sofort ausgeführt und Cronjob eingerichtet!"
