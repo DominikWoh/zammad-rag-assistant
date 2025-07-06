@@ -39,7 +39,7 @@ if [[ "$INSTALL_ZAMMAD" =~ ^[Yy]$ ]]; then
   git clone https://github.com/zammad/zammad-docker-compose.git "$ZAMMAD_DOCKER_PATH"
   cd "$ZAMMAD_DOCKER_PATH"
   docker compose up -d
-  echo "⏳ Zammad gestartet unter http://localhost:8080"
+  echo "⏳ Zammad gestartet unter http://$IP:8080, erstelle ein API Token unter einem neuen Benutzer z.B. KI-Assistant"
   ZAMMAD_URL="http://localhost:8080"
   read -p "🔑 Bitte gib dein Zammad API-Token ein: " ZAMMAD_TOKEN
 else
