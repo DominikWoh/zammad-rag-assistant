@@ -114,16 +114,16 @@ def is_ticket_helpful(ticket):
     print(ticket['full_text'])
     prompt = f"""
 Du bist IT-Support-Experte. Beantworte mit "JA" oder "NEIN":
-- Ist dieses Ticket hilfreich fÃƒÆ’Ã‚Â¼r IT Admins, weil es eine konkrete LÃƒÆ’Ã‚Â¶sung, einen Workaround oder eine nachvollziehbare Fehlerursache oder zumindest weietre Details die zur LÃƒÆ’Ã‚Â¶sungsfindung beitragen kÃƒÆ’Ã‚Â¶nnen enthÃƒÆ’Ã‚Â¤lt?
-- Wenn nur das Problem beschrieben ist, aber keine LÃƒÆ’Ã‚Â¶sung/Workaround/Fix genannt wird, antworte mit "NEIN".
-- Wenn es im Ticket nur steht sinngemÃƒÆ’Ã‚Â¤ÃƒÆ’Ã…Â¸ steht Software/Hardware XY wurde korrigiert, behoben, installiert, neu installiert, aktulaisiert etc. aber keine Details genannt werden, antworte mit "NEIN".
+- Ist dieses Ticket hilfreich für IT Admins, weil es eine konkrete Lösung, einen Workaround oder eine nachvollziehbare Fehlerursache oder zumindest weietre Details die zur Lösungsfindung beitragen können enthält?
+- Wenn nur das Problem beschrieben ist, aber keine Lösung/Workaround/Fix genannt wird, antworte mit "NEIN".
+- Wenn es im Ticket nur steht sinngemäß steht Software/Hardware XY wurde korrigiert, behoben, installiert, neu installiert, aktulaisiert etc. aber keine Details genannt werden, antworte mit "NEIN".
 - Wenn im Ticket von [SUSPECTED PHISHING] die Rede ist, antworte mit "NEIN".
 
 Ticket-Text:
 ---
 {ticket['full_text']}
 ---
-Antworte ausschlieÃƒÆ’Ã…Â¸lich mit "JA" oder "NEIN".
+Antworte ausschließlich mit "JA" oder "NEIN".
 """
     for attempt in range(MAX_ATTEMPTS):
         print(f"ÃƒÂ°Ã…Â¸Ã¢â‚¬ [LLM] PrÃƒÆ’Ã‚Â¼fe auf Relevanz/LÃƒÆ’Ã‚Â¶sung (Versuch {attempt+1}) ...")
@@ -141,20 +141,20 @@ Antworte ausschlieÃƒÆ’Ã…Â¸lich mit "JA" oder "NEIN".
 
 def summarize_ticket_to_json(ticket):
     prompt = f"""
-Du bist ein IT-Support-Experte und bereitest Tickets fÃƒÆ’Ã‚Â¼r eine Wissensdatenbank auf. Deine Aufgabe:
+Du bist ein IT-Support-Experte und bereitest Tickets für eine Wissensdatenbank auf. Deine Aufgabe:
 
-1. Extrahiere und fasse die wichtigsten Felder wie unten vorgegeben prÃƒÆ’Ã‚Â¤zise zusammen.
-2. Gib deine Antwort ausschlieÃƒÆ’Ã…Â¸lich als korrektes, minimales JSON aus (keine Kommentare, keine Freitexte, keine umlaute).
+1. Extrahiere und fasse die wichtigsten Felder wie unten vorgegeben präzise zusammen.
+2. Gib deine Antwort ausschließlich als korrektes, minimales JSON aus (keine Kommentare, keine Freitexte, keine umlaute).
 3. Halte dich zu 100% an die vorgegebenen Feldnamen und -typen in der JSON-Struktur.
-3. Wenn fÃƒÆ’Ã‚Â¼r ein Feld keine Information vorhanden ist, gib null aus ohne anfÃƒÆ’Ã‚Â¼hrungszeichen also ein echtes json null kein text.
+3. Wenn für ein Feld keine Information vorhanden ist, gib null aus ohne anführungszeichen also ein echtes json null kein text.
 
 Feldbedeutungen und Beispiele:
 - "ersteller": Name des Ticket-Erstellers. Beispiel: "Max Mustermann"
 - "erstelldatum": Datum im Format YYYY-MM-DD. Beispiel: "2024-06-01"
 - "kategorie": Oberkategorie. Beispiel: Client, Server, Andere Hardware, Software, Netzwerk, Benutzerverwaltung
 - "kurzbeschreibung": Sehr kurze Zusammenfassung des Problems (1 Satz). Beispiel: "Outlook startet nicht"
-- "beschreibung": Fehlermeldungen, Besonderheiten (keine LÃƒÆ’Ã‚Â¶sung, keine Workarounds, nur das Problem beschreiben, gerne mehr text). Beispiel: "Beim Start von Outlook erscheint Fehlercode 0x800123."
-- "loesung": Konkrete LÃƒÆ’Ã‚Â¶sung im Detail (AusfÃƒÆ’Ã‚Â¼hrlich gerne mehr Text) oder Workaround was wurde gemacht um das Problem zu lÃƒÆ’Ã‚Â¶sen. Beispiel: "Datei von XY nach Z kopiert dann pc neu gestartet, auf dem chaos server unter E:\Daten Ordner anglegt und Berechtigung fÃƒÆ’Ã‚Â¼r xy vergeben"
+- "beschreibung": Fehlermeldungen, Besonderheiten (keine Lösung, keine Workarounds, nur das Problem beschreiben, gerne mehr text). Beispiel: "Beim Start von Outlook erscheint Fehlercode 0x800123."
+- "loesung": Konkrete Lösung im Detail (Ausführlich gerne mehr Text) oder Workaround was wurde gemacht um das Problem zu lösen. Beispiel: "Datei von XY nach Z kopiert dann pc neu gestartet, auf dem chaos server unter E:\Daten Ordner anglegt und Berechtigung für xy vergeben"
 - "system": Betriebssystem/Produkt/Software inkl. Version, falls erkennbar. Beispiel: "Windows 10, Outlook 365, Teams, Drucker"
 - "tags": Schlagworte als Liste (3-6 relevante Schlagworte). Beispiel: ["Teams", "VPN", "Drucker"]
 
@@ -166,7 +166,7 @@ Halte dich an das Beispiel-JSON:
   "kategorie": "Software",
   "kurzbeschreibung": "Outlook startet nicht",
   "beschreibung": "Beim Start von Outlook erscheint Fehlercode 0x800123. Und...",
-  "loesung": "KB518511 installiert unter C:\temp Daten gelÃƒÆ’Ã‚Â¶scht danach PC neu gestartet. Und...",
+  "loesung": "KB518511 installiert unter C:\temp Daten gelöscht danach PC neu gestartet. Und...",
   "system": "Windows 10, Outlook 365",
   "tags": ["Outlook", "E-Mail"]
 }}
@@ -175,7 +175,7 @@ Ticket-Text:
 ---
 {ticket['full_text']}
 ---
-Antworte ausschlieÃƒÆ’Ã…Â¸lich mit dem JSON-Objekt wie oben. Keine weiteren ErklÃƒÆ’Ã‚Â¤rungen.
+Antworte ausschließlich mit dem JSON-Objekt wie oben. Keine weiteren Erklärungen.
 """
     REQUIRED_FIELDS = [
         "ersteller", "erstelldatum", "kategorie",
