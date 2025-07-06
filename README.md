@@ -46,14 +46,14 @@ chmod +x setup.sh
 ./setup.sh     # Ausführen
 ```
 
-    Dieses Skript wird:
-    - Notwendige Abhängigkeiten installieren (Docker, Python, etc.).
-    - Zammad installieren (optional).
-    - KI-Komponenten (Qdrant, Ollama, OpenWebUI) konfigurieren.
-    - Notwendige Umgebungsdateien und Konfigurationen erstellen.
-    - Python-Pakete und Abhängigkeiten installieren.
-    - Einen Cron-Job für die automatische Ausführung des Skripts einrichten.
-    - Den Zammad RAG Service aktivieren und starten.
+Dieses Skript wird:
+ - Notwendige Abhängigkeiten installieren (Docker, Python, etc.).
+ - Zammad installieren (optional).
+ - KI-Komponenten (Qdrant, Ollama, OpenWebUI) konfigurieren.
+ - Notwendige Umgebungsdateien und Konfigurationen erstellen.
+ - Python-Pakete und Abhängigkeiten installieren.
+ - Einen Cron-Job für die automatische Ausführung des Skripts einrichten.
+ - Den Zammad RAG Service aktivieren und starten.
 
 3. **Zammad API konfigurieren**:
     Während der Installation wirst du aufgefordert, dein Zammad API-Token und die URL einzugeben. Wenn Zammad nicht installiert ist, fragt das Skript, ob es installiert und konfiguriert werden soll.
