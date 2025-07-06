@@ -25,6 +25,16 @@ Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zam
 - Python 3
 - Zammad-Instanz (optional, kann über Docker installiert werden)
 
+## Systemanforderungen
+
+Um eine optimale Leistung zu gewährleisten, sind folgende Systemanforderungen erforderlich:
+
+- **CPU**: Mindestens 10 Threads (empfohlen: >12 Threads)
+- **RAM**: Mindestens 16 GB (empfohlen: >20 GB)
+- **Speicherplatz**: Mindestens 30 GB freier Speicher (empfohlen: >30 GB)
+
+Diese Anforderungen stellen sicher, dass das System effizient läuft und alle Komponenten (wie Zammad, Qdrant und Ollama) problemlos zusammenarbeiten können.
+
 ### Installation
 
 1. **Setup**:
