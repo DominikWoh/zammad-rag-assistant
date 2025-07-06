@@ -9,10 +9,14 @@ SCRIPT_PATH="$PROJECT_PATH/ZammadToQdrant.py"
 ENV_FILE="$INSTALL_DIR/ticket_ingest.env"
 PYTHON_ENV="$INSTALL_DIR/venv"
 ZAMMAD_DOCKER_PATH="/opt/zammad-docker"
+ZAMMAD_RAG_POLLER="$PROJECT_PATH/zammad_rag_poller.py"
 
 echo "📦 Starte vollständiges Setup inkl. AI-Stack und (optional) Zammad ..."
 
-echo "[0/8] Docker & Compose installieren..."
+echo "[0/8] System vorbereiten (Upgrade & Cleanup)..."
+apt update && apt upgrade -y
+
+echo "[1/8] Docker & Compose installieren..."
 apt install -y \
   curl git apt-transport-https ca-certificates software-properties-common gnupg lsb-release
 
@@ -24,16 +28,13 @@ echo \
 apt update
 apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-echo "[1/8] System vorbereiten (Upgrade & Cleanup)..."
-apt update && apt upgrade -y
-
-echo "[0/8] Stoppe & bereinige alte Docker-Container..."
+echo "[2/8] Stoppe & bereinige alte Docker-Container..."
 docker container stop $(docker ps -aq) 2>/dev/null || true
 docker system prune -af
 docker volume prune -f
 rm -rf "$INSTALL_DIR" "$ZAMMAD_DOCKER_PATH"
 
-echo "[2/8] Zammad optional installieren..."
+echo "[3/8] Zammad optional installieren..."
 read -p "❓ Möchtest du Zammad mit Docker installieren? (y/n): " INSTALL_ZAMMAD
 if [[ "$INSTALL_ZAMMAD" =~ ^[Yy]$ ]]; then
   git clone https://github.com/zammad/zammad-docker-compose.git "$ZAMMAD_DOCKER_PATH"
@@ -47,7 +48,7 @@ else
   read -p "🔑 Zammad API-Token: " ZAMMAD_TOKEN
 fi
 
-echo "[3/8] AI-Umgebung vorbereiten (Qdrant, Ollama, OpenWebUI)..."
+echo "[4/8] AI-Umgebung vorbereiten (Qdrant, Ollama, OpenWebUI)..."
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
@@ -98,7 +99,7 @@ docker compose --env-file <(echo "QDRANT_API_KEY=${QDRANT_API_KEY}") -f docker-c
 # IP ermitteln, die für alle Container genutzt wird
 IP=$(hostname -I | awk '{print $1}')
 
-echo "[4/8] Konfiguration & .env-Datei schreiben..."
+echo "[5/8] Konfiguration & .env-Datei schreiben..."
 read -p "🤖 Ollama-Modell (z. B. gemma3n:latest): " OLLAMA_MODEL
 read -p "📁 Name der Qdrant-Collection: " COLLECTION_NAME
 
@@ -115,11 +116,11 @@ EOF
 chmod 600 "$ENV_FILE"
 echo "🔐 .env gespeichert unter $ENV_FILE"
 
-echo "[5/8] Warte auf Ollama-Start & lade Modell '$OLLAMA_MODEL'..."
+echo "[6/8] Warte auf Ollama-Start & lade Modell '$OLLAMA_MODEL'..."
 sleep 20
 docker exec ollama ollama pull "$OLLAMA_MODEL" || echo "❌ Modell konnte nicht geladen werden"
 
-echo "[6/8] Python-Umgebung vorbereiten..."
+echo "[7/8] Python-Umgebung vorbereiten..."
 apt install -y python3 python3-pip python3-venv
 
 python3 -m venv "$PYTHON_ENV"
@@ -139,19 +140,16 @@ EOF
 pip install -r "$PROJECT_PATH/requirements.txt"
 deactivate
 
-echo "[7/8] Cronjob einrichten für tägliche Ausführung (01:00 Uhr)..."
+echo "[8/8] Cronjob für tägliche Ausführung (01:00 Uhr) einrichten..."
 CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qdrant.log 2>&1"
 ( crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" ; echo "$CRON_JOB" ) | crontab -
 
-if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
-  echo "🌐 Öffne Firewall für relevante Ports ..."
-  ufw allow 8080/tcp
-  ufw allow 3000/tcp
-  ufw allow 11434/tcp
-  ufw allow 6333/tcp
-fi
+echo "🌐 Öffne Firewall für relevante Ports ..."
+ufw allow 8080/tcp
+ufw allow 3000/tcp
+ufw allow 11434/tcp
+ufw allow 6333/tcp
 
-echo ""
 echo "✅ Setup abgeschlossen!"
 echo "Zammad:       http://$IP:8080"
 echo "OpenWebUI:    http://$IP:3000"
@@ -162,7 +160,36 @@ echo "Script-Log:   /var/log/zammad_to_qdrant.log"
 echo "Qdrant API-Key:     $QDRANT_API_KEY"
 
 
-echo "[8/8] Cronjob für ZammadToQdrant.py hinzufügen und Skript sofort ausführen:"
+# Service für zammad_rag_poller.py erstellen
+echo "[9/8] Erstellen des Services für zammad_rag_poller.py:"
+
+cat > /etc/systemd/system/zammad_rag_poller.service <<EOF
+[Unit]
+Description=Zammad RAG Poller Service
+After=network.target
+
+[Service]
+ExecStart=$PYTHON_ENV/bin/python $ZAMMAD_RAG_POLLER
+WorkingDirectory=$INSTALL_DIR/$PROJECT_NAME
+EnvironmentFile=$ENV_FILE
+Restart=always
+TimeoutSec=120
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Berechtigungen setzen
+chmod 644 /etc/systemd/system/zammad_rag_poller.service
+chmod +x $ZAMMAD_RAG_POLLER
+
+# Service aktivieren und starten
+systemctl daemon-reload
+systemctl enable zammad_rag_poller.service
+systemctl start zammad_rag_poller.service
+
+# Cronjob für das ZammadToQdrant.py Skript einrichten
+echo "[10/8] Cronjob für ZammadToQdrant.py hinzufügen und Skript sofort ausführen:"
 
 # Cronjob für das ZammadToQdrant.py Skript einrichten
 CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qdrant.log 2>&1"
@@ -172,4 +199,4 @@ CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qd
 echo "🔄 Führe ZammadToQdrant.py jetzt sofort aus ..."
 $PYTHON_ENV/bin/python "$SCRIPT_PATH"
 
-echo "✅ Skript sofort ausgeführt und Cronjob eingerichtet!"
+echo "✅ Skript sofort ausgeführt und Cronjob sowie Service für zammad_rag_poller eingerichtet!"
