@@ -145,6 +145,10 @@ deactivate
 
 echo "[8/8] UFW Freigabe und Links"
 
+# Cronjob für das ZammadToQdrant.py Skript einrichten
+CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qdrant.log 2>&1"
+( crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" ; echo "$CRON_JOB" ) | crontab -
+
 echo "🌐 Öffne Firewall für relevante Ports ..."
 if ! command -v ufw >/dev/null; then
   echo "📦 Installiere ufw ..."
