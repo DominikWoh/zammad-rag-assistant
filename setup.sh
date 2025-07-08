@@ -34,6 +34,9 @@ docker system prune -af
 docker volume prune -f
 rm -rf "$INSTALL_DIR" "$ZAMMAD_DOCKER_PATH"
 
+# IP ermitteln, die für alle Container genutzt wird
+IP=$(hostname -I | awk '{print $1}')
+
 echo "[3/8] Zammad optional installieren..."
 read -p "❓ Möchtest du Zammad mit Docker installieren? (y/n): " INSTALL_ZAMMAD
 if [[ "$INSTALL_ZAMMAD" =~ ^[Yy]$ ]]; then
@@ -140,11 +143,14 @@ EOF
 pip install -r "$PROJECT_PATH/requirements.txt"
 deactivate
 
-echo "[8/8] Cronjob für tägliche Ausführung (01:00 Uhr) einrichten..."
-CRON_JOB="0 1 * * * $PYTHON_ENV/bin/python $SCRIPT_PATH >> /var/log/zammad_to_qdrant.log 2>&1"
-( crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" ; echo "$CRON_JOB" ) | crontab -
+echo "[8/8] UFW Freigabe und Links"
 
 echo "🌐 Öffne Firewall für relevante Ports ..."
+if ! command -v ufw >/dev/null; then
+  echo "📦 Installiere ufw ..."
+  apt install -y ufw
+fi
+
 ufw allow 8080/tcp
 ufw allow 3000/tcp
 ufw allow 11434/tcp
@@ -163,25 +169,25 @@ echo "Qdrant API-Key:     $QDRANT_API_KEY"
 # Service für zammad_rag_poller.py erstellen
 echo "[9/8] Erstellen des Services für zammad_rag_poller.py:"
 
-cat > /etc/systemd/system/zammad_rag_poller.service <<EOF
-[Unit]
-Description=Zammad RAG Poller Service
-After=network.target
+SERVICE_FILE="/etc/systemd/system/zammad_rag_poller.service"
 
-[Service]
-ExecStart=$PYTHON_ENV/bin/python $ZAMMAD_RAG_POLLER
-WorkingDirectory=$INSTALL_DIR/$PROJECT_NAME
-EnvironmentFile=$ENV_FILE
-Restart=always
-TimeoutSec=120
-
-[Install]
-WantedBy=multi-user.target
-EOF
+echo "[Unit]" > "$SERVICE_FILE"
+echo "Description=Zammad RAG Poller Service" >> "$SERVICE_FILE"
+echo "After=network.target" >> "$SERVICE_FILE"
+echo "" >> "$SERVICE_FILE"
+echo "[Service]" >> "$SERVICE_FILE"
+echo "ExecStart=$PYTHON_ENV/bin/python $ZAMMAD_RAG_POLLER" >> "$SERVICE_FILE"
+echo "WorkingDirectory=$INSTALL_DIR/$PROJECT_NAME" >> "$SERVICE_FILE"
+echo "EnvironmentFile=$ENV_FILE" >> "$SERVICE_FILE"
+echo "Restart=always" >> "$SERVICE_FILE"
+echo "TimeoutSec=120" >> "$SERVICE_FILE"
+echo "" >> "$SERVICE_FILE"
+echo "[Install]" >> "$SERVICE_FILE"
+echo "WantedBy=multi-user.target" >> "$SERVICE_FILE"
 
 # Berechtigungen setzen
-chmod 644 /etc/systemd/system/zammad_rag_poller.service
-chmod +x $ZAMMAD_RAG_POLLER
+chmod 644 "$SERVICE_FILE"
+chmod +x "$ZAMMAD_RAG_POLLER"
 
 # Service aktivieren und starten
 systemctl daemon-reload
