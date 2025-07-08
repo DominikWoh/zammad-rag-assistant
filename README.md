@@ -1,6 +1,6 @@
 # Zammad RAG Assistant
 
-Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zammad bereit, der die Möglichkeiten von Vektor-Suche und großen Sprachmodellen (LLM) nutzt, um das Ticket-Handling zu automatisieren. Das System integriert sich mit Zammad für das Ticket-Management, Qdrant für die Vektor-Suche und Ollama für die LLM-Verarbeitung, um *Lösungen oder Support-Antworten basierend auf früheren Tickets und Wissen vorzuschlagen*.
+Dieses Repository stellt einen KI-unterstützten IT-Support-Assistenten für Zammad bereit, der die Möglichkeiten von Vektor-Suche und großen Sprachmodellen (LLM) nutzt, um das Ticket-Handling zu automatisieren. Das System integriert sich mit Zammad für das Ticket-Management, Qdrant für die Vektor-Suche und Ollama für die LLM-Verarbeitung, um **Lösungen oder Support-Antworten basierend auf früheren Tickets und Wissen vorzuschlagen**.
 
 ## Features
 
