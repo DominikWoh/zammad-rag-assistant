@@ -1,0 +1,510 @@
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #0b0b0c;
+    --panel: #111214;
+    --card: #15171a;
+    --border: #25262b;
+    --text: #f5f6f7;
+    --muted: #a1a5ad;
+    --accent: #2f6df6;
+    --accent-600: #255be0;
+    --success: #22c55e;
+    --danger: #ef4444;
+
+    /* Minimal shadow + radius scale */
+    --radius: 10px;
+    --radius-sm: 8px;
+    --shadow-1: 0 1px 0 rgba(255,255,255,0.03) inset, 0 1px 2px rgba(0,0,0,0.4);
+}
+
+body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    background: radial-gradient(1200px 600px at -10% -20%, #132039, transparent 60%), var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 20px 40px;
+}
+
+header {
+    margin-bottom: 20px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.header-actions {
+    margin-left: auto; /* schiebt die Buttons nach rechts */
+    display: inline-flex;
+    gap: 8px;
+}
+
+/* Überschrift ohne !important, Spezifität über .app-header .page-title */
+header h1 {
+    font-size: 1.15rem;
+    letter-spacing: 0.1px;
+    margin-right: auto; /* hält Actions (Konfiguration/Abmelden) rechts ausgerichtet nebeneinander */
+}
+
+.app-header .page-title {
+    font-size: 1.6rem;
+    line-height: 1.25;
+    color: var(--text);
+    /* kein font-weight, damit nicht mit !important gearbeitet werden muss */
+}
+
+.btn-config {
+    padding: 8px 12px;
+    background-color: transparent;
+    color: var(--text);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    border: 1px solid var(--border);
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#logout-btn.btn-config {
+    /* gleiche Optik wie Konfiguration-Link */
+}
+
+.btn-config:hover {
+    background-color: #1a2030;
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+/* Status Grid */
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.status-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 14px 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+
+/* no hover lift in business theme */
+
+.status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.status-header h3 {
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: #cbd5e1; /* hell im Light-Theme */
+}
+
+.status-indicator.online {
+    background: var(--success);
+}
+
+.status-indicator.offline {
+    background: var(--danger);
+}
+
+.status-details {
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+/* System Stats */
+.system-stats {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 14px 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+
+.system-stats h2 {
+    margin-bottom: 12px;
+    color: var(--text);
+    font-size: 1.05rem;
+    letter-spacing: 0.2px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.stat-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 10px 12px;
+    background: #21293a;  /* heller als zuvor */
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+.stat-label {
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.stat-value {
+    font-weight: 750;
+    color: var(--text);
+}
+
+/* Activities */
+.activities {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 14px 8px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+
+.activities h2 {
+    margin-bottom: 12px;
+    color: var(--text);
+    font-size: 1.05rem;
+    letter-spacing: 0.2px;
+}
+
+.activity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+/* remove hover background for calmer look */
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-title {
+    /* Tickets nicht fett */
+    font-weight: normal;
+    color: var(--text);
+}
+
+.activity-time {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+/* Controls */
+.controls {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 14px 14px 12px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+
+.controls h2 {
+    margin-bottom: 12px;
+    color: var(--text);
+    font-size: 1.05rem;
+    letter-spacing: 0.2px;
+}
+
+.control-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.btn {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    min-width: 0;
+    color: var(--text);
+    background: #121418;
+}
+
+.btn-start { border-color: rgba(34,197,94,0.3); color: #d1fadf; background: #0b1f12; }
+.btn-start:hover { border-color: var(--success); background: #0f2a18; }
+.btn-stop { border-color: rgba(239,68,68,0.3); color: #fecaca; background: #2a1111; }
+.btn-stop:hover { border-color: var(--danger); background: #351616; }
+.btn-restart { border-color: rgba(47,109,246,0.3); color: #d6e4ff; background: #0e1a2e; }
+.btn-restart:hover { border-color: var(--accent); background: #112241; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ================================================= */
+/* CONFIG FORM STYLES */
+/* ================================================= */
+
+form section {
+    margin-bottom: 18px;
+    background: var(--panel); /* etwas heller als card hier */
+    padding: 16px 16px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-1);
+}
+
+form label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+
+/* Regel für normale Inputs, die die volle Breite einnehmen sollen */
+form input[type="text"],
+form input[type="url"],
+form input[type="number"],
+form input[type="date"],
+.model-management select,
+.model-add input {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+    height: 42px;
+    background: #21293a; /* heller */
+    color: var(--text);
+}
+
+/* Globale Button-Regeln auf der Seite */
+form button {
+    padding: 10px 12px;
+    font-size: 0.95rem;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    background-color: var(--accent);
+    color: #ffffff;
+    transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+    height: 42px;
+    box-shadow: 0 1px 2px rgba(2,8,23,0.06);
+}
+
+form button:hover {
+    background-color: var(--accent-600);
+    border-color: var(--accent-600);
+}
+
+/* Gruppe für Input mit Button daneben */
+.input-group {
+    display: flex;
+    width: 100%;
+    margin-bottom: 12px;
+}
+
+/* Das Input-Feld in der Gruppe */
+.input-group input {
+    flex-grow: 1;
+    min-width: 0;
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+    height: 42px;
+    padding: 10px 12px;
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+    background: #ffffff;
+    color: var(--text);
+}
+
+/* Der Kopier-Button in der Gruppe */
+.input-group .copy-btn {
+    flex-shrink: 0;
+    background: #25314a; /* heller */
+    padding: 10px 12px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: 0 8px 8px 0;
+    display: flex;
+    align-items: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    color: #e3ecff;
+}
+
+.input-group .copy-btn:hover {
+    background: #2c3a58;
+    border-color: var(--accent);
+}
+
+#save-result, #zammad-test-result {
+    margin-top: 8px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ================================================= */
+/* OLLAMA MODEL MANAGEMENT STYLES */
+/* ================================================= */
+
+.model-management,
+.model-add {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.model-management select,
+.model-add input {
+    flex-grow: 1;
+}
+
+.model-management button,
+.model-add button {
+    flex-shrink: 0;
+    min-width: 120px;
+}
+
+.btn-danger {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
+}
+
+.btn-danger:hover {
+    background-color: #dc2626 !important;
+}
+
+#model-result {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    display: none;
+}
+
+#model-result.success {
+    background-color: #ecfdf5;
+    color: #065f46;
+    display: block;
+    border: 1px solid #86efac;
+}
+
+#model-result.error {
+    background-color: #fef2f2;
+    color: #7f1d1d;
+    display: block;
+    border: 1px solid #fecaca;
+}
+
+/* Styling für den Service-Kontrolle-Header */
+.controls-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 12px;
+}
+
+.service-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background-color: #1a2a45;
+    border: 1px solid #274067;
+}
+
+.service-status-indicator .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background-color: #64748b;
+}
+
+.service-status-indicator .status-text {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #e6efff;
+}
+
+/* Farben für die verschiedenen Zustände */
+.service-status-indicator.online { background-color: #173a2a; border-color: #1f8a4c; }
+.service-status-indicator.online .status-dot { background-color: var(--success); }
+.service-status-indicator.online .status-text { color: #b6f5cf; }
+
+.service-status-indicator.offline { background-color: #3a1a1a; border-color: #aa3a3a; }
+.service-status-indicator.offline .status-dot { background-color: var(--danger); }
+.service-status-indicator.offline .status-text { color: #ffd1d1; }
+
+/* ================================================= */
+/* RESPONSIVE */
+/* ================================================= */
+
+@media (max-width: 768px) {
+    .container {
+        padding: 16px;
+    }
+
+    header {
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .header-actions {
+        margin-left: 0;
+        margin-right: 0;
+        width: 100%;
+        justify-content: flex-end; /* auf Mobile weiterhin rechtsbündig */
+    }
+
+    html body header h1,
+    html body header .page-title {
+        font-size: 2rem;
+        line-height: 1.2;
+        margin-right: 0;
+        width: 100%;
+        white-space: normal;
+    }
+
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .control-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}

@@ -8,30 +8,81 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 
-# === .env laden ===
-load_dotenv("/opt/ai-suite/ticket_ingest.env")
+# === .env laden (plattformübergreifend, wie Web-UI) ===
+WINDOWS_ENV_PATH = os.path.join(os.getcwd(), ".env")
+UBUNTU_ENV_PATH = "/opt/ai-suite/ticket_ingest.env"
+
+def detect_env_path():
+    if os.path.isfile(WINDOWS_ENV_PATH):
+        return WINDOWS_ENV_PATH
+    elif os.path.isfile(UBUNTU_ENV_PATH):
+        return UBUNTU_ENV_PATH
+    else:
+        open(WINDOWS_ENV_PATH, "a", encoding="utf-8").close()
+        return WINDOWS_ENV_PATH
+
+ENV_PATH = detect_env_path()
+load_dotenv(ENV_PATH)
+
+# Prompt-ENV-Dateien aus dem Services-Ordner laden (override=True)
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_THIS_DIR, "askai.env"), override=True)
+load_dotenv(os.path.join(_THIS_DIR, "rag_prompt.env"), override=True)
 
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 OLLAMA_URL = os.getenv("OLLAMA_URL")
+if OLLAMA_URL and not OLLAMA_URL.rstrip('/').endswith('/api/chat'):
+  OLLAMA_URL = OLLAMA_URL.rstrip('/') + '/api/chat'
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 ZAMMAD_URL = os.getenv("ZAMMAD_URL")
 ZAMMAD_TOKEN = os.getenv("ZAMMAD_TOKEN")
 EMBED_MODEL = "intfloat/multilingual-e5-base"
 
+# Feature-Flags aus .env mit Defaults: ENABLE_ASKKI=false, ENABLE_RAG_NOTE=true
+def _to_bool(val, default=False):
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    s = str(val).strip().lower()
+    if s in ("true", "1", "yes", "on"):
+        return True
+    if s in ("false", "0", "no", "off"):
+        return False
+    return default
+
+ENABLE_ASKKI = _to_bool(os.getenv("ENABLE_ASKKI"), default=False)
+ENABLE_RAG_NOTE = _to_bool(os.getenv("ENABLE_RAG_NOTE"), default=True)
+print(f"[Flags] ENABLE_ASKKI={ENABLE_ASKKI}, ENABLE_RAG_NOTE={ENABLE_RAG_NOTE}")
+
 client = QdrantClient(QDRANT_URL, api_key=QDRANT_API_KEY)
-model = SentenceTransformer(EMBED_MODEL)
+model = SentenceTransformer(EMBED_MODEL, cache_folder='/opt/ai-suite/.cache/huggingface')
 HEADERS = {"Authorization": f"Token token={ZAMMAD_TOKEN}"}
 
+# Default-Prompts als Fallbacks
+DEFAULT_ASKAI_PROMPT = (
+    "Du bist ein IT-Support-Experte. Bitte beantworte die folgende Frage und erstelle für den IT Profi eine mögliche Lösung ohne Floskeln.\n\n"
+    "Frage bzw. Anfrage:\n---\n{user_text}\n---\n\n"
+    "Antworte möglichst konkret und hilfreich, mache kein Markdown, verwende nur Zeilenumbrüche."
+)
+
+DEFAULT_RAG_PROMPT = (
+    "Du bist ein IT-Support-Experte. Antworte auf die folgende Anfrage so hilfreich wie möglich (auf Deutsch) ohne Floskeln.\n"
+    "Du schreibst die (mögliche) Lösung für einen IT Profi, als Notiz, damit dieser das Problem schneller lösen kann.\n"
+    "Mache keine Markdown. Es gibt nur Zeilenumbrüche.\n"
+    "Nutze dein eigenes Wissen und, aber nur wenn relevant, das folgende Ticket-Wissen (Knowledge) aus ähnlichen Fällen:\n\n"
+    "Benutzeranfrage:\n---\n{combined_text}\n---\n\n"
+    "Hilfreiches Ticket-Wissen:\n---\n{knowledge}\n---\n\n"
+    "Antworte möglichst konkret, aber nur wenn sinnvoll und fachlich korrekt."
+)
+
 def expand_query_with_llm(query, max_attempts=3):
-    prompt = f"""
-Du bist ein IT‑Support‑Experte. Erzeuge drei alternative kurze Suchsätze (Suchanfragen), die das Problem aus unterschiedlichen Perspektiven oder mit anderen Formulierungen ausdrücken.
-Frage:
-"{query}"
-- Gib ausschließlich eine Python‑Liste aus, z. B.: ["Alternative 1", "Alternative 2", "Alternative 3"]
-- Kein Markdown, keine ```python, keine Codeblöcke.
-"""
+    template = os.getenv("QUERY_EXPANSION_PROMPT",
+        'Du bist ein IT‑Support‑Experte. Erzeuge drei alternative kurze Suchsätze (Suchanfragen), die das Problem aus unterschiedlichen Perspektiven oder mit anderen Formulierungen ausdrücken.\nFrage:\n"{query}"\n- Gib ausschließlich eine Python‑Liste aus, z. B.: ["Alternative 1", "Alternative 2", "Alternative 3"]\n- Kein Markdown, keine ```python, keine Codeblöcke.'
+    )
+    prompt = template.format(query=query)
     for attempt in range(1, max_attempts + 1):
         try:
             res = requests.post(
@@ -157,17 +208,10 @@ def build_full_ticket_text(ticket):
 
 def build_rag_prompt(ticket, rag_hits):
     """Erstellt das RAG-Prompt unter Verwendung des gesamten Tickettextes und des Ticket-Titels."""
-    
-    # Hole den Titel des Tickets
     ticket_title = ticket.get("title", "Kein Titel verfügbar")
-    
-    # Hole den vollständigen Text des Tickets (Artikel)
-    user_text = build_full_ticket_text(ticket)  # Gesamten Text bauen und bereinigen
-
-    # Kombiniere Titel und User Text
+    user_text = build_full_ticket_text(ticket)
     combined_text = f"Ticket-Titel: {ticket_title}\n\nTicket-Inhalt:\n{user_text}"
 
-    # Baue die Treffer für das RAG-System
     hit_blocks = []
     for hit in rag_hits:
         pl = hit.payload
@@ -176,32 +220,14 @@ def build_rag_prompt(ticket, rag_hits):
         loesung = pl.get("lösung", "")
         if kurz or beschr or loesung:
             hit_blocks.append(f"[Problem] {kurz}\n[Beschreibung] {beschr}\n[Lösung] {loesung}")
-    
-    # Füge die Treffer als Knowledge zum Prompt hinzu
-    knowledge = "\n\n".join(hit_blocks)
-    
-    # Erstelle den endgültigen Prompt
-    prompt = f"""
-Du bist ein IT-Support-Experte. Antworte auf die folgende Anfrage so hilfreich wie möglich (auf Deutsch) ohne floskeln.
-Du schreibst die (mögliche) Lösung für einen IT Profi, als Notiz, damit dieser das Problem schneller lösen kann.
-Mache keine Markdown. Es gibt nur Zeilenumbrüche.
-Nutze dein eigenes Wissen und, aber nur wenn relevant, das folgende Ticket-Wissen (Knowledge) aus ähnlichen Fällen:
 
-Benutzeranfrage:
----
-{combined_text}
----
+    knowledge = "\n\n".join(hit_blocks) if hit_blocks else "[Keine ähnlichen Tickets gefunden]"
 
-Hilfreiches Ticket-Wissen:
----
-{knowledge if knowledge else '[Keine ähnlichen Tickets gefunden]'}
----
-
-Antworte möglichst konkret, aber nur wenn sinnvoll und fachlich korrekt.
-"""
+    template = os.getenv("RAG_PROMPT", DEFAULT_RAG_PROMPT)
+    prompt = template.format(combined_text=combined_text, knowledge=knowledge)
     print("User Text (inkl. Titel):", combined_text)
     print("Knowledge:", knowledge)
-    return prompt.strip()
+    return str(prompt).strip()
 
 def call_llm(prompt, max_attempts=3):
     # Sicherstellen, dass 'prompt' ein String ist
@@ -271,8 +297,12 @@ def should_process_ticket(ticket):
 
     # 1. Wenn nur ein Artikel existiert und das Ticket neu oder offen ist
     if article_count == 1 and ticket_state in [1, 2]:  # state.id == 1 (neu) oder 2 (offen)
-        print(f"⚠️ Ticket {ticket['id']} hat nur einen Artikel und ist neu oder offen. Gehe zu RAG.")
-        return "RAG"  # RAG aktivieren für Tickets mit einem Artikel
+        if ENABLE_RAG_NOTE:
+            print(f"⚠️ Ticket {ticket['id']} hat nur einen Artikel und ist neu oder offen. Gehe zu RAG.")
+            return "RAG"  # RAG aktivieren für Tickets mit einem Artikel
+        else:
+            print(f"ℹ️ RAG deaktiviert (ENABLE_RAG_NOTE=false) – Ticket {ticket['id']} wird übersprungen.")
+            return False
 
     # 2. Wenn mehrere Artikel vorhanden sind, aber der letzte Artikel "AskAI" enthält
     elif article_count > 1:
@@ -285,9 +315,13 @@ def should_process_ticket(ticket):
                 last_article = response.json()
                 last_body = last_article.get("body", "").lower()
                 if "askai" in last_body:
-                    print(f"⚠️ 'AskAI' im letzten Artikel von Ticket {ticket['id']} gefunden. Gehe zu LLM.")
-                    prompt = build_askai_prompt(last_article)  # Übergabe des letzten Artikels an das LLM
-                    return prompt  # Rückgabe des angepassten Prompts für den 'AskAI' Trigger
+                    if ENABLE_ASKKI:
+                        print(f"⚠️ 'AskAI' im letzten Artikel von Ticket {ticket['id']} gefunden. Gehe zu LLM.")
+                        prompt = build_askai_prompt(last_article)  # Übergabe des letzten Artikels an das LLM
+                        return prompt  # Rückgabe des angepassten Prompts für den 'AskAI' Trigger
+                    else:
+                        print(f"ℹ️ ASKKI deaktiviert (ENABLE_ASKKI=false) – 'AskAI'-Trigger ignoriert (Ticket {ticket['id']}).")
+                        return False
             else:
                 print(f"❌ Fehler beim Abrufen des letzten Artikels von Ticket {ticket['id']}")
 
@@ -298,22 +332,12 @@ def should_process_ticket(ticket):
 
 def build_askai_prompt(last_article):
     """Erstellt den Prompt für die LLM-Anfrage, wenn 'AskAI' im letzten Artikel vorkommt."""
-    user_text = f"Beantworte folgende Frage bzw. unterstütze dabei: {last_article['body']}"  # Nur der letzte Artikel
-    # Bereinige den HTML-Inhalt des user_text
+    user_text = f"{last_article['body']}"  # Nur der letzte Artikel
     user_text_cleaned = clean_html_to_text(user_text)
-    
-    prompt = f"""
-Du bist ein IT-Support-Experte. Bitte beantworte die folgende Frage und erstelle für den IT Profi eine mögliche Lösung ohne floskeln.
-
-Frage bzw. Anfrage:
----
-{user_text_cleaned}
----
-
-Antworte möglichst konkret und hilfreich, mach keine Markdowns, es gibt nur Zeilenumbrüche.
-"""
+    template = os.getenv("ASKAI_PROMPT", DEFAULT_ASKAI_PROMPT)
+    prompt = template.format(user_text=user_text_cleaned)
     print("User Text:", user_text_cleaned)
-    return prompt.strip()
+    return str(prompt).strip()
 
 def fetch_new_and_open_tickets(api_url, api_token):
     headers = {
@@ -347,28 +371,34 @@ def process_tickets():
                         prompt_or_rag = should_process_ticket(ticket)
                         
                         if isinstance(prompt_or_rag, str) and prompt_or_rag == "RAG":  # RAG aktivieren
-                            user_text = build_full_ticket_text(ticket)
-                            print("User Text (Ticket):", user_text)
-
-                            # Suche nach ähnlichen Tickets und relevanten Daten
-                            rag_hits = search_qdrant(user_text)
-
-                            # Generiere das RAG-Prompt und rufe das LLM auf
-                            prompt = build_rag_prompt(ticket, rag_hits)
-                            reply = call_llm(prompt)  # LLM-Antwort erhalten
-                            if reply:
-                                post_note_to_ticket(ticket_id, reply)
-                                print(f"✅ Antwort bei Ticket {ticket_id} gespeichert.")
+                            if not ENABLE_RAG_NOTE:
+                                print(f"ℹ️ RAG deaktiviert – Ticket {ticket_id} wird ohne Notiz übersprungen.")
                             else:
-                                print("❌ Keine KI-Antwort erhalten – Ticket bleibt unbearbeitet.")
+                                user_text = build_full_ticket_text(ticket)
+                                print("User Text (Ticket):", user_text)
+
+                                # Suche nach ähnlichen Tickets und relevanten Daten
+                                rag_hits = search_qdrant(user_text)
+
+                                # Generiere das RAG-Prompt und rufe das LLM auf
+                                prompt = build_rag_prompt(ticket, rag_hits)
+                                reply = call_llm(prompt)  # LLM-Antwort erhalten
+                                if reply:
+                                    post_note_to_ticket(ticket_id, reply)
+                                    print(f"✅ Antwort bei Ticket {ticket_id} gespeichert.")
+                                else:
+                                    print("❌ Keine KI-Antwort erhalten – Ticket bleibt unbearbeitet.")
 
                         elif prompt_or_rag:  # Wenn 'AskAI' gefunden wurde, wird hier das LLM direkt aufgerufen
-                            reply = call_llm(prompt_or_rag)  # LLM-Antwort erhalten
-                            if reply:
-                                post_note_to_ticket(ticket_id, reply)
-                                print(f"✅ Antwort bei Ticket {ticket_id} gespeichert.")
+                            if not ENABLE_ASKKI:
+                                print(f"ℹ️ ASKKI deaktiviert – Ticket {ticket_id} wird ohne Notiz übersprungen.")
                             else:
-                                print("❌ Keine KI-Antwort erhalten – Ticket bleibt unbearbeitet.")
+                                reply = call_llm(prompt_or_rag)  # LLM-Antwort erhalten
+                                if reply:
+                                    post_note_to_ticket(ticket_id, reply)
+                                    print(f"✅ Antwort bei Ticket {ticket_id} gespeichert.")
+                                else:
+                                    print("❌ Keine KI-Antwort erhalten – Ticket bleibt unbearbeitet.")
                     except Exception as inner_exception:
                         print(f"❌ Fehler beim Verarbeiten von Ticket {ticket.get('id', 'unbekannt')}: {inner_exception}")
                         print(traceback.format_exc())

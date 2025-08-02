@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zammad RAG Assistant - Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <div class="page-title-wrap">
+                <h1 class="page-title">Zammad RAG Assistant</h1>
+            </div>
+            <div class="header-actions">
+                <a href="/config" class="btn-config">Konfiguration</a>
+                <!-- Abmelden-Button wird per JS eingefügt; Platzhalter-Container sorgt für saubere Anordnung -->
+            </div>
+        </header>
+
+        <!-- System Status Grid -->
+        <div class="status-grid">
+            <div class="status-card">
+                <div class="status-header">
+                    <h3>Qdrant Vector DB</h3>
+                    <div id="qdrant-status" class="status-indicator"></div>
+                </div>
+                <div id="qdrant-details" class="status-details">
+                    Verbindungsstatus wird geladen...
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-header">
+                    <h3>Ollama LLM</h3>
+                    <div id="ollama-status" class="status-indicator"></div>
+                </div>
+                <div id="ollama-details" class="status-details">
+                    Verbindungsstatus wird geladen...
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="status-header">
+                    <h3>Zammad API</h3>
+                    <div id="zammad-status" class="status-indicator"></div>
+                </div>
+                <div id="zammad-details" class="status-details">
+                    Verbindungsstatus wird geladen...
+                </div>
+            </div>
+        </div>
+
+        <!-- System Statistics -->
+        <div class="system-stats">
+            <h2>System-Statistiken</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">CPU Auslastung:</span>
+                    <span id="cpu-usage" class="stat-value">-%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">RAM Auslastung:</span>
+                    <span id="memory-usage" class="stat-value">-%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Festplatte:</span>
+                    <span id="disk-usage" class="stat-value">-%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activities -->
+        <div class="activities">
+            <h2>Letzte Ticket-Aktivitäten</h2>
+            <div id="activity-list">
+                Aktivitäten werden geladen...
+            </div>
+        </div>
+
+        <!-- Service Controls -->
+        <div class="controls">
+            <div class="controls-header">
+                <h2>Service-Kontrolle</h2>
+                <div id="poller-status" class="service-status-indicator">
+                    <div class="status-dot"></div>
+                    <span class="status-text">Unbekannt</span>
+                </div>
+            </div>
+            <div class="control-buttons">
+                <button class="btn btn-start" onclick="controlService('zammad_rag_poller', 'start')">
+                    Service starten
+                </button>
+                <button class="btn btn-stop" onclick="controlService('zammad_rag_poller', 'stop')">
+                    Service stoppen
+                </button>
+                <button class="btn btn-restart" onclick="controlService('zammad_rag_poller', 'restart')">
+                    Service neustarten
+                </button>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; color: rgba(255,255,255,0.7);">
+            <small id="lastUpdate">Letztes Update: Lädt...</small>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

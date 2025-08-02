@@ -10,25 +10,52 @@ import requests
 from datetime import datetime, timedelta, timezone
 from bs4 import BeautifulSoup
 
-MIN_CLOSED_DAYS = 14  # Mindestanzahl Tage geschlossen
+# Einheitliche .env-Detektion wie die Web-UI
+WINDOWS_ENV_PATH = os.path.join(os.getcwd(), ".env")
+UBUNTU_ENV_PATH = "/opt/ai-suite/ticket_ingest.env"
 
-# .env laden
-load_dotenv("/opt/ai-suite/ticket_ingest.env")
+def detect_env_path():
+    if os.path.isfile(WINDOWS_ENV_PATH):
+        return WINDOWS_ENV_PATH
+    elif os.path.isfile(UBUNTU_ENV_PATH):
+        return UBUNTU_ENV_PATH
+    else:
+        # Lokale .env anlegen, falls nicht vorhanden
+        open(WINDOWS_ENV_PATH, "a", encoding="utf-8").close()
+        return WINDOWS_ENV_PATH
+
+ENV_PATH = detect_env_path()
+load_dotenv(ENV_PATH)
+
+# Prompt-ENVs aus dem Services-Ordner laden
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_THIS_DIR, "is_ticket_helpfull.env"), override=True)
+load_dotenv(os.path.join(_THIS_DIR, "summarize_ticket.env"), override=True)
 
 # ---- KONFIG AUS .env ----
 QDRANT_URL = os.getenv("QDRANT_URL")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 OLLAMA_URL = os.getenv("OLLAMA_URL")
+if OLLAMA_URL and not OLLAMA_URL.rstrip('/').endswith('/api/chat'):
+  OLLAMA_URL = OLLAMA_URL.rstrip('/') + '/api/chat'
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 ZAMMAD_URL = os.getenv("ZAMMAD_URL")
 ZAMMAD_TOKEN = os.getenv("ZAMMAD_TOKEN")
-EMBED_MODEL = "intfloat/multilingual-e5-base"
-MIN_TICKET_DATE = datetime(2025, 1, 1, tzinfo=timezone.utc)
+EMBED_MODEL = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")
+
+# Mindest-Datum aus ENV (UTC) oder Default
+MIN_CLOSED_DAYS = int(os.getenv("MIN_CLOSED_DAYS", "14"))
+min_ticket_date_str = os.getenv("MIN_TICKET_DATE", "2025-01-01")
+try:
+    MIN_TICKET_DATE = datetime.strptime(min_ticket_date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+except Exception:
+    MIN_TICKET_DATE = datetime(2025, 1, 1, tzinfo=timezone.utc)
+
 MAX_ATTEMPTS = 1
 
 client = QdrantClient(QDRANT_URL, api_key=QDRANT_API_KEY)
-model = SentenceTransformer(EMBED_MODEL)
+model = SentenceTransformer(EMBED_MODEL, device='cpu')
 
 if not client.collection_exists(collection_name=COLLECTION_NAME):
     print(f"📦 Erstelle Collection '{COLLECTION_NAME}' ...")
@@ -46,6 +73,67 @@ else:
     print(f"📦 Collection '{COLLECTION_NAME}' existiert bereits.")
 
 print("Collection Info:", client.get_collection(COLLECTION_NAME))
+# Zentrale Default-Prompt-Templates als Fallback (falls ENV nicht gesetzt)
+DEFAULT_IS_TICKET_HELPFUL = (
+    'Du bist IT-Support-Experte. Beantworte mit "JA" oder "NEIN":\n'
+    '- Ist dieses Ticket hilfreich für IT Admins, weil es eine konkrete Lösung, einen Workaround oder eine nachvollziehbare Fehlerursache oder zumindest weitere Details die zur Lösungsfindung beitragen können enthält?\n'
+    '- Wenn nur das Problem beschrieben ist, aber keine Lösung/Workaround/Fix genannt wird, antworte mit "NEIN".\n'
+    '- Wenn es im Ticket nur steht sinngemäß steht Software/Hardware XY wurde korrigiert, behoben, installiert, neu installiert, aktualisiert etc. aber keine Details genannt werden, antworte mit "NEIN".\n'
+    '- Wenn im Ticket von [SUSPECTED PHISHING] die Rede ist, antworte mit "NEIN".\n\n'
+    'Ticket-Text:\n---\n{full_text}\n---\nAntworte ausschließlich mit "JA" oder "NEIN".'
+)
+
+DEFAULT_SUMMARIZE_TICKET = (
+    'Du bist ein IT-Support-Experte und bereitest Tickets für eine Wissensdatenbank auf. Deine Aufgabe:\n\n'
+    '1. Extrahiere und fasse die wichtigsten Felder wie unten vorgegeben präzise zusammen.\n'
+    '2. Gib deine Antwort ausschließlich als korrektes, minimales JSON aus (keine Kommentare, keine Freitexte, Umlaute erlaubt).\n'
+    '3. Halte dich zu 100% an die vorgegebenen Feldnamen und -typen in der JSON-Struktur.\n'
+    '3. Wenn für ein Feld keine Information vorhanden ist, gib null aus ohne Anführungszeichen also ein echtes json null kein Text.\n\n'
+    'Feldbedeutungen und Beispiele:\n'
+    '- "ersteller": Name des Ticket-Erstellers. Beispiel: "Max Mustermann"\n'
+    '- "erstelldatum": Datum im Format YYYY-MM-DD. Beispiel: "2024-06-01"\n'
+    '- "kategorie": Oberkategorie. Beispiel: Client, Server, Andere Hardware, Software, Netzwerk, Benutzerverwaltung\n'
+    '- "kurzbeschreibung": Sehr kurze Zusammenfassung des Problems (1 Satz). Beispiel: "Outlook startet nicht"\n'
+    '- "beschreibung": Fehlermeldungen, Besonderheiten (keine Lösung, keine Workarounds, nur das Problem beschreiben, gerne mehr Text). Beispiel: "Beim Start von Outlook erscheint Fehlercode 0x800123."\n'
+    '- "lösung": Konkrete Lösung im Detail (ausführlich, gerne mehr Text) oder Workaround, was wurde gemacht um das Problem zu lösen. Beispiel: "Datei von XY nach Z kopiert dann PC neu gestartet, auf dem chaos server unter E:\\Daten Ordner angelegt und Berechtigung für xy vergeben"\n'
+    '- "system": Betriebssystem/Produkt/Software inkl. Version, falls erkennbar. Beispiel: "Windows 10, Outlook 365, Teams, Drucker"\n'
+    '- "tags": Schlagworte als Liste (3-6 relevante Schlagworte). Beispiel: ["Teams", "VPN", "Drucker"]\n\n'
+    'Halte dich an das Beispiel-JSON:\n\n'
+    '{\n'
+    '  "ersteller": "Max Mustermann",\n'
+    '  "erstelldatum": "2024-06-01",\n'
+    '  "kategorie": "Software",\n'
+    '  "kurzbeschreibung": "Outlook startet nicht",\n'
+    '  "beschreibung": "Beim Start von Outlook erscheint Fehlercode 0x800123. Und...",\n'
+    '  "lösung": "KB518511 installiert unter C:\\temp Daten gelöscht danach PC neu gestartet. Und...",\n'
+    '  "system": "Windows 10, Outlook 365",\n'
+    '  "tags": ["Outlook", "E-Mail"]\n'
+    '}\n\n'
+    'Ticket-Text:\n---\n{full_text}\n---\n'
+    'Antworte ausschließlich mit dem JSON-Objekt wie oben. Keine weiteren Erklärungen.'
+)
+
+# Einheitliche Prompt-Bezugsfunktionen (ziehen zuerst ENV, sonst Default)
+def use_template_full_text(template: str, full_text: str) -> str:
+    """
+    Ersetzt nur das Token {full_text} ohne str.format, damit JSON-Klammern
+    im Template nicht als Platzhalter interpretiert werden.
+    """
+    return template.replace("{full_text}", full_text)
+
+def get_is_ticket_helpful_prompt(full_text: str) -> str:
+    template = os.getenv("IS_TICKET_HELPFUL_PROMPT", DEFAULT_IS_TICKET_HELPFUL)
+    try:
+        return use_template_full_text(template, full_text)
+    except Exception:
+        return use_template_full_text(DEFAULT_IS_TICKET_HELPFUL, full_text)
+
+def get_summarize_ticket_prompt(full_text: str) -> str:
+    template = os.getenv("SUMMARIZE_TICKET_PROMPT", DEFAULT_SUMMARIZE_TICKET)
+    try:
+        return use_template_full_text(template, full_text)
+    except Exception:
+        return use_template_full_text(DEFAULT_SUMMARIZE_TICKET, full_text)
 
 
 def html_to_text(html):
@@ -90,6 +178,7 @@ def call_llm(prompt, max_tokens=900, temperature=0.1, max_attempts=MAX_ATTEMPTS)
                 response_json = res.json()
                 content = response_json["message"]["content"].strip()
                 print("🔍 LLM-Antwort:", content)
+                content= remove_thinking_blocks(content)
                 return content
             except Exception as json_err:
                 print("❌ JSON-Parsing-Fehler:", json_err)
@@ -107,27 +196,92 @@ def call_llm(prompt, max_tokens=900, temperature=0.1, max_attempts=MAX_ATTEMPTS)
                 print("❌ LLM Request endgültig fehlgeschlagen!")
                 return None
 
+def remove_thinking_blocks(text):
+    """
+    Entfernt aus der Antwort alle typischen Denkprozess-Blöcke oder -Markierungen 
+    samt folgendem Text, damit nur der reine Antworttext erhalten bleibt.
+
+    Unterstützte Muster (Case-Insensitive):
+    - XML-ähnliche Tags: <think>...</think>, <THINK>...</THINK>
+    - Schlüsselwörter, nach denen alles danach entfernt wird:
+      z.B. 'thinking:', 'thinking', 'reasoning:', 'reasoning', 'thought:', 'thought'
+
+    Rückgabe: Nur der Text vor dem ersten Auftreten solcher Denkprozess-Indikatoren, getrimmt.
+    """
+
+    # 1. Entferne alle <think>…</think> Blöcke
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.IGNORECASE | re.DOTALL)
+
+    # 2. Suche nach Indikatoren wie "thinking", "reasoning", "thought" und schneide dort ab
+    # Muster: Wort + optional „:“ oder whitespace danach
+    thinking_keywords = [
+        r"\bthinking\b[:\s]",
+        r"\breasoning\b[:\s]",
+        r"\bthought\b[:\s]",
+        r"\bthink\b[:\s]",
+        r"\bdenk\w*\b[:\s]"
+    ]
+    pattern = re.compile("|".join(thinking_keywords), flags=re.IGNORECASE)
+
+    match = pattern.search(cleaned)
+    if match:
+        cleaned = cleaned[:match.start()]
+
+    # Anschließend sauber trimmen von Leerzeichen, Zeilenumbrüchen etc.
+    return cleaned.strip()
 
 def clean_llm_json_answer(answer):
     cleaned = re.sub(r"```[a-z]*\n?", "", answer, flags=re.IGNORECASE).strip()
     cleaned = re.sub(r"```", "", cleaned).strip()
     return cleaned
 
-def is_ticket_helpful(ticket):
-    print(ticket['full_text'])
-    prompt = f"""
-Du bist IT-Support-Experte. Beantworte mit "JA" oder "NEIN":
-- Ist dieses Ticket hilfreich für IT Admins, weil es eine konkrete Lösung, einen Workaround oder eine nachvollziehbare Fehlerursache oder zumindest weitere Details die zur Lösungsfindung beitragen können enthält?
-- Wenn nur das Problem beschrieben ist, aber keine Lösung/Workaround/Fix genannt wird, antworte mit "NEIN".
-- Wenn es im Ticket nur steht sinngemäß steht Software/Hardware XY wurde korrigiert, behoben, installiert, neu installiert, aktualisiert etc. aber keine Details genannt werden, antworte mit "NEIN".
-- Wenn im Ticket von [SUSPECTED PHISHING] die Rede ist, antworte mit "NEIN".
 
-Ticket-Text:
----
-{ticket['full_text']}
----
-Antworte ausschließlich mit "JA" oder "NEIN".
-"""
+def safe_str(val):
+    """
+    Robustes String-Rendering:
+    - None -> ""
+    - str -> .strip()
+    - list/tuple -> ", ".join(map(safe_str, ...)) nur nicht-leere
+    - andere Typen -> str(val).strip()
+    """
+    if val is None:
+        return ""
+    if isinstance(val, str):
+        return val.strip()
+    if isinstance(val, (list, tuple)):
+        parts = [safe_str(x) for x in val]
+        parts = [p for p in parts if p]
+        return ", ".join(parts)
+    try:
+        return str(val).strip()
+    except Exception:
+        return ""
+
+
+def safe_list(val):
+    """
+    Stellt sicher, dass eine Liste von Strings zurückkommt:
+    - None -> []
+    - str -> [str.strip()] wenn nicht leer
+    - list/tuple -> [safe_str(x) for x in val] ohne leere
+    - andere Typen -> [] (konservativ)
+    """
+    if val is None:
+        return []
+    if isinstance(val, str):
+        v = val.strip()
+        return [v] if v else []
+    if isinstance(val, (list, tuple)):
+        cleaned = [safe_str(x) for x in val]
+        return [c for c in cleaned if c]
+    return []
+
+# Entfernt: doppelte Default-Prompt-Definitionen (zentrale Definition oben)
+
+def is_ticket_helpful(ticket):
+    print(ticket["full_text"])
+    prompt = get_is_ticket_helpful_prompt(ticket["full_text"])
+
     for attempt in range(MAX_ATTEMPTS):
         print(f"🔎 [LLM] Prüfe auf Relevanz/Lösung (Versuch {attempt+1}) ...")
         answer = call_llm(prompt, max_tokens=5, temperature=0.0)
@@ -135,7 +289,7 @@ Antworte ausschließlich mit "JA" oder "NEIN".
             print(f"⛔️ Keine Antwort vom LLM bei Relevanzprüfung (Versuch {attempt+1}) – wiederhole...")
             time.sleep(1)
             continue
-        answer = answer.upper()
+        answer = answer.upper().strip().strip('"').strip("'")
         if answer == "JA":
             print("✅ Ticket ist relevant/hilfreich.")
             return True
@@ -144,47 +298,11 @@ Antworte ausschließlich mit "JA" oder "NEIN".
             return False
         print(f"⛔️ Ungültige LLM-Antwort (Versuch {attempt+1}): '{answer}' – wiederhole...")
         time.sleep(1)
-    print(f"⏹️ Konnte keine gültige JA/NEIN-Antwort vom LLM bekommen. Ticket wird übersprungen.")
+    print("⏹️ Konnte keine gültige JA/NEIN-Antwort vom LLM bekommen. Ticket wird übersprungen.")
     return False
 
 def summarize_ticket_to_json(ticket):
-    prompt = f"""
-Du bist ein IT-Support-Experte und bereitest Tickets für eine Wissensdatenbank auf. Deine Aufgabe:
-
-1. Extrahiere und fasse die wichtigsten Felder wie unten vorgegeben präzise zusammen.
-2. Gib deine Antwort ausschließlich als korrektes, minimales JSON aus (keine Kommentare, keine Freitexte, Umlaute erlaubt).
-3. Halte dich zu 100% an die vorgegebenen Feldnamen und -typen in der JSON-Struktur.
-3. Wenn für ein Feld keine Information vorhanden ist, gib null aus ohne Anführungszeichen also ein echtes json null kein Text.
-
-Feldbedeutungen und Beispiele:
-- "ersteller": Name des Ticket-Erstellers. Beispiel: "Max Mustermann"
-- "erstelldatum": Datum im Format YYYY-MM-DD. Beispiel: "2024-06-01"
-- "kategorie": Oberkategorie. Beispiel: Client, Server, Andere Hardware, Software, Netzwerk, Benutzerverwaltung
-- "kurzbeschreibung": Sehr kurze Zusammenfassung des Problems (1 Satz). Beispiel: "Outlook startet nicht"
-- "beschreibung": Fehlermeldungen, Besonderheiten (keine Lösung, keine Workarounds, nur das Problem beschreiben, gerne mehr Text). Beispiel: "Beim Start von Outlook erscheint Fehlercode 0x800123."
-- "lösung": Konkrete Lösung im Detail (ausführlich, gerne mehr Text) oder Workaround, was wurde gemacht um das Problem zu lösen. Beispiel: "Datei von XY nach Z kopiert dann PC neu gestartet, auf dem chaos server unter E:\Daten Ordner angelegt und Berechtigung für xy vergeben"
-- "system": Betriebssystem/Produkt/Software inkl. Version, falls erkennbar. Beispiel: "Windows 10, Outlook 365, Teams, Drucker"
-- "tags": Schlagworte als Liste (3-6 relevante Schlagworte). Beispiel: ["Teams", "VPN", "Drucker"]
-
-Halte dich an das Beispiel-JSON:
-
-{{
-  "ersteller": "Max Mustermann",
-  "erstelldatum": "2024-06-01",
-  "kategorie": "Software",
-  "kurzbeschreibung": "Outlook startet nicht",
-  "beschreibung": "Beim Start von Outlook erscheint Fehlercode 0x800123. Und...",
-  "lösung": "KB518511 installiert unter C:\temp Daten gelöscht danach PC neu gestartet. Und...",
-  "system": "Windows 10, Outlook 365",
-  "tags": ["Outlook", "E-Mail"]
-}}
-
-Ticket-Text:
----
-{ticket['full_text']}
----
-Antworte ausschließlich mit dem JSON-Objekt wie oben. Keine weiteren Erklärungen.
-"""
+    prompt = get_summarize_ticket_prompt(ticket["full_text"])
     REQUIRED_FIELDS = [
         "ersteller", "erstelldatum", "kategorie",
         "kurzbeschreibung", "beschreibung", "lösung", "system", "tags"
@@ -260,19 +378,20 @@ def process_and_store_ticket(ticket, point_id):
     if not fields or not fields.get("lösung"):
         print(f"⏩ Ticket {ticket.get('id', point_id)} hat keine Lösung – wird übersprungen.")
         return
+    # Optionales Warn-Logging für None-Felder
+    for _key in ["kurzbeschreibung", "beschreibung", "lösung", "system", "kategorie", "tags"]:
+        if fields.get(_key, "present") is None:
+            print(f"⚠️ Hinweis: Feld '{_key}' ist null und wird mit Fallback weiterverarbeitet.")
 
     # Kontextuell angereicherte Felder
-    kurz = f"Kurzbeschreibung: {fields.get('kurzbeschreibung', '').strip()}"
-    beschr = f"Beschreibung: {fields.get('beschreibung', '').strip()}"
-    lösung = f"Lösung: {fields.get('lösung', '').strip()}"
-    system = f"System: {fields.get('system', '').strip()}"
-    kategorie = f"Kategorie: {fields.get('kategorie', '').strip()}"
+    kurz = f"Kurzbeschreibung: {safe_str(fields.get('kurzbeschreibung'))}"
+    beschr = f"Beschreibung: {safe_str(fields.get('beschreibung'))}"
+    lösung = f"Lösung: {safe_str(fields.get('lösung'))}"
+    system = f"System: {safe_str(fields.get('system'))}"
+    kategorie = f"Kategorie: {safe_str(fields.get('kategorie'))}"
 
-    tags_list = fields.get("tags", []) or []
-    if isinstance(tags_list, list):
-        tags_text = ", ".join(tags_list)
-    else:
-        tags_text = str(tags_list)
+    tags_list = safe_list(fields.get("tags"))
+    tags_text = ", ".join(tags_list)
     tags = f"Tags: {tags_text}"
 
     # Kombinierter Vektor (für 'all') mit allem relevanten
@@ -292,11 +411,20 @@ def process_and_store_ticket(ticket, point_id):
     emb_all = model.encode(alle, normalize_embeddings=True)
 
     print("💾 Speichere in Qdrant ...")
+    # Verwende die Zammad ticket_id als stabile Qdrant-ID, um Überschreiben/Nachdubletten zu vermeiden
+    qdrant_id = None
+    try:
+        # ticket wurde zuvor mit build_ticket_for_llm gebaut und enthält die echte zammad id im Text,
+        # aber wir holen sie hier sicherheitshalber aus dem Payload für die Qdrant-ID:
+        qdrant_id = int(ticket.get('id')) if ticket.get('id') is not None else point_id
+    except Exception:
+        qdrant_id = point_id
+
     client.upsert(
         collection_name=COLLECTION_NAME,
         points=[
             models.PointStruct(
-                id=point_id,
+                id=qdrant_id,
                 vector={
                     "kurzbeschreibung": emb_kurz.tolist(),
                     "beschreibung": emb_beschr.tolist(),
@@ -345,9 +473,44 @@ def get_existing_ticket_ids():
         offset += limit
     return ticket_ids
 
+
+def get_max_existing_ticket_id():
+    """
+    Liefert die höchste vorhandene ticket_id in der Collection als int.
+    Falls keine vorhanden, None.
+    """
+    max_tid = None
+    offset = 0
+    limit = 1000
+    while True:
+        result = client.scroll(
+            collection_name=COLLECTION_NAME,
+            scroll_filter=None,
+            with_payload=True,
+            offset=offset,
+            limit=limit
+        )
+        points = result[0]
+        if not points:
+            break
+        for point in points:
+            tid = point.payload.get("ticket_id")
+            try:
+                if tid is not None:
+                    tid_int = int(tid)
+                    if max_tid is None or tid_int > max_tid:
+                        max_tid = tid_int
+            except Exception:
+                # ignoriere nicht-numerische IDs
+                pass
+        offset += limit
+    return max_tid
+
 # IDs einmal am Anfang holen
 existing_ticket_ids = get_existing_ticket_ids()
+max_existing_tid = get_max_existing_ticket_id()
 print(f"🧾 Bereits indexierte Tickets: {len(existing_ticket_ids)}")
+print(f"🔢 Höchste vorhandene ticket_id in Qdrant: {max_existing_tid if max_existing_tid is not None else 'keine'}")
 
 def fetch_and_process_zammad_tickets():
     headers = {"Authorization": f"Token token={ZAMMAD_TOKEN}"}
@@ -429,8 +592,19 @@ def fetch_and_process_zammad_tickets():
                 print(f"⏩ Ticket {ticket_id} wurde vor weniger als {MIN_CLOSED_DAYS} Tagen geschlossen – übersprungen.")
                 continue
 
+            # Skip-Strategie: Alle Tickets bis zur höchsten vorhandenen ticket_id überspringen
+            try:
+                current_tid_int = int(ticket_id)
+            except Exception:
+                current_tid_int = None
+
+            if max_existing_tid is not None and current_tid_int is not None and current_tid_int <= max_existing_tid:
+                print(f"⏭️ Ticket {ticket_id} <= max_existing_tid ({max_existing_tid}) – wird übersprungen.")
+                continue
+
             ticket_llm = build_ticket_for_llm(t)
             process_and_store_ticket(ticket_llm, point_id)
+            # point_id bleibt nur Fallback, die Qdrant-ID ist jetzt die Zammad-ID
             point_id += 1
             total += 1
 

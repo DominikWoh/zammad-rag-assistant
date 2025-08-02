@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konfiguration - Zammad RAG Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="page-title">Konfiguration</h1>
+            <a href="/" class="btn-config">Zurück zum Dashboard</a>
+        </header>
+
+        <form id="config-form">
+            <!-- Zammad Einstellungen -->
+            <section>
+                <h2>Zammad Einstellungen</h2>
+                <label for="zammad-url">Zammad URL:</label>
+                <input type="url" id="zammad-url" placeholder="http://192.168.0.120:8080" required>
+
+                <label for="zammad-token">Zammad Token:</label>
+                <div class="input-group">
+                    <input type="text" id="zammad-token" placeholder="Ihr Zammad API Token" required>
+                    <button type="button" id="copy-zammad-token-btn" class="copy-btn" title="In Zwischenablage kopieren">Kopieren</button>
+                </div>
+
+                <button type="button" id="test-zammad-btn" class="btn">Verbindung testen</button>
+                <div id="zammad-test-result"></div>
+            </section>
+
+            <!-- Ollama Einstellungen -->
+            <section>
+                <h2>Ollama Einstellungen</h2>
+                <label for="ollama-url">Ollama Server URL:</label>
+                <input type="url" id="ollama-url" placeholder="http://192.168.0.120:11434" required>
+
+                <label for="model-selection">Aktives Modell auswählen:</label>
+                <div class="model-management">
+                    <select id="model-selection">
+                        <option value="">Lade Modelle...</option>
+                    </select>
+                    <button type="button" id="refresh-models-btn" class="btn">Aktualisieren</button>
+                    <button type="button" id="delete-model-btn" class="btn btn-danger" disabled>Löschen</button>
+                </div>
+
+                <label for="new-model-input">Neues Modell herunterladen:</label>
+                <div class="model-add">
+                    <input type="text" id="new-model-input" placeholder="z.B. llama3:8b">
+                    <button type="button" id="pull-model-btn" class="btn">Herunterladen</button>
+                </div>
+
+                <div id="model-result" style="display: none;"></div>
+            </section>
+
+            <!-- Qdrant Einstellungen -->
+            <section>
+                <h2>Qdrant Einstellungen</h2>
+                <label for="qdrant-collection">Collection Name:</label>
+                <input type="text" id="qdrant-collection" placeholder="zammad-collection" required>
+
+                <label for="qdrant-api-key">Qdrant API Key:</label>
+                <div class="input-group">
+                    <input type="text" id="qdrant-api-key" placeholder="Ihr Qdrant API Key" required>
+                    <button type="button" id="copy-qdrant-key-btn" class="copy-btn" title="In Zwischenablage kopieren">📋</button>
+                </div>
+
+                <button type="button" id="test-qdrant-btn" class="btn">Qdrant Verbindung testen</button>
+                <div id="qdrant-test-result"></div>
+            </section>
+
+            <!-- Ticket Filter -->
+            <section>
+                <h2>Ticket Filter</h2>
+                <label for="min-closed-days">Mindest-Tage seit Ticket-Schließung:</label>
+                <input type="number" id="min-closed-days" placeholder="14" min="1" required>
+
+                <label for="min-date">Frühestes Ticket-Datum:</label>
+                <input type="date" id="min-date" required>
+            </section>
+
+            <!-- KI-Funktionen -->
+            <section>
+                <h2>KI-Funktionen</h2>
+
+                <label class="checkbox">
+                    <input type="checkbox" id="enable-askki">
+                    ASKKI aktivieren
+                </label>
+
+                <label class="checkbox">
+                    <input type="checkbox" id="enable-rag-note">
+                    RAG-Antwort als Notiz aktivieren
+                </label>
+
+                <p style="margin-top: 8px; color: #666;">Hinweis: Nach dem Speichern ist ein manueller Neustart des Dienstes erforderlich.</p>
+            </section>
+
+            <button type="submit" class="btn">Speichern</button>
+            <div id="save-result"></div>
+        </form>
+    </div>
+
+    <script src="/static/config.js"></script>
+</body>
+</html>
