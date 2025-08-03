@@ -1,6 +1,6 @@
 # Zammad RAG Assistant WebUI
 
-![Hero](./Antwort von KI basierend auf vorherige Tickets.png)
+![Hero](Antwort%20von%20KI%20basierend%20auf%20vorherige%20Tickets.png)
 
 Die einfache KI‑Erweiterung für Zammad: Diese Weboberfläche verbindet Ihr Zammad‑Helpdesk mit moderner AI/LLM‑Technologie. Dank Retrieval‑Augmented Generation (RAG) nutzt die App Ihre vorhandenen Tickets als Wissensquelle, um schneller bessere Antworten zu finden – ohne Ihre Daten an Dritte zu senden.
 
@@ -107,7 +107,7 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
   - Ingest‑Status und Start
   - Letzte Aktivitäten (Top‑5; neueste oben; Uhrzeit rechts)
 
-  ![Dashboard](./Zammad RAG Assistant Dashboard.png)
+  ![Dashboard](Zammad%20RAG%20Assistant%20Dashboard.png)
 
 - Config
   - Form zur Eingabe von URLs, Tokens, Flags (`ENABLE_ASKKI`, `ENABLE_RAG_NOTE`)
@@ -115,7 +115,7 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
   - Ollama‑Modelle anzeigen/pullen/löschen
   - Ingest‑Schedule setzen und Ingest starten
 
-  ![Konfiguration](./Zammad RAG Assistant Konfiguration.png)
+  ![Konfiguration](Zammad%20RAG%20Assistant%20Konfiguration.png)
 
 ---
 
