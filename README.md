@@ -75,45 +75,95 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 ---
 
-## Installation: Download, Build & Up
+## Installation: Download → Build → ENV → Up
 
-Dieser Weg benötigt keinen Registry‑Login (ghcr). Du baust das Image lokal aus dem Git‑Stand und startest es mit docker‑compose.
+Dieser Pfad ist bewusst ohne Registry (ghcr). Reihenfolge exakt befolgen: erst Docker installieren, dann Repo klonen/aktualisieren, dann build, dann ENV schreiben, dann Up.
 
-1) Repository beziehen oder aktualisieren
-- Neu klonen:
-  git clone https://github.com/DominikWoh/zammad-rag-assistant.git
-  cd zammad-rag-assistant
+1) Docker installieren (Ubuntu)
+```
+sudo apt update && sudo apt install -y ca-certificates curl && \
+sudo install -m 0755 -d /etc/apt/keyrings && \
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null && \
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
+sudo usermod -aG docker $USER
+```
+Ab- und wieder anmelden, damit Gruppenrechte greifen.
+
+2) Repository holen oder aktualisieren
+- Neu:
+```
+git clone https://github.com/DominikWoh/zammad-rag-assistant.git
+cd zammad-rag-assistant
+```
 - Bereits vorhanden:
-  git pull --rebase
+```
+cd zammad-rag-assistant
+git pull --rebase
+```
 
-2) Konfigurationsverzeichnisse anlegen
-- Verzeichnisse für persistente Daten:
-  mkdir -p ./config ./cache
-- Lege deine ENV unter ./config/ticket_ingest.env ab (siehe Abschnitt “Konfiguration (.env)”)
+3) Build vorbereiten und Image bauen
+- Verzeichnisse anlegen:
+```
+mkdir -p ./config ./cache ./logs
+```
+- Image bauen (lokal, ohne ghcr):
+```
+docker compose build
+# Alternative:
+# docker build -t zammad-rag-ui:latest .
+```
 
-3) Lokales Docker‑Image bauen
-- Mit docker‑compose:
-  docker compose build
-- Alternativ direkt mit Docker (optional Tag):
-  docker build -t zammad-rag-ui:latest .
+4) ENV schreiben (nach dem Build!)
+Standard‑ENV für lokale Nutzung (Qdrant/Ollama via Compose):
+```
+cat > ./config/ticket_ingest.env << 'EOF'
+ZAMMAD_URL=http://localhost:8080
+ZAMMAD_TOKEN=
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+COLLECTION_NAME=zammad-collection
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+EMBED_MODEL=intfloat/multilingual-e5-base
 
-4) Container starten
-- Mit docker‑compose:
-  docker compose up -d
-- Status/Logs:
-  docker ps
-  docker compose logs -f
+ENABLE_ASKKI=true
+ENABLE_RAG_NOTE=true
 
-5) Ports/Volumes anpassen (optional)
-- Wenn Port 5000 belegt ist, passe in docker-compose.yml die Zeile an:
-  "HOSTPORT:5000"  # z. B. "5001:5000"
-- Volumes sind standardmäßig:
-  ./config -> /data/config
-  ./cache  -> /data/cache
+TOP_K_RESULTS=5
+MAX_TOKENS=800
+TEMPERATURE=0.1
+TIMEOUT_SECONDS=220
+
+MIN_CLOSED_DAYS=14
+MIN_TICKET_DATE=2025-01-01
+
+PROMPTS_DIR=/data/config/prompts
+INGEST_SCHEDULE=@daily 23:00
+EOF
+```
+
+5) Container starten
+```
+docker compose up -d
+```
+Status/Logs:
+```
+docker ps
+docker compose logs -f
+```
+
+6) Optional: Ports/Volumes anpassen
+- Port 5000 belegt? In docker-compose.yml “HOSTPORT:5000” anpassen, z. B. "5001:5000".
+- Standard‑Volumes:
+  - ./config → /data/config
+  - ./cache  → /data/cache
+  - ./logs   → /data/log
 
 Hinweise
-- Der “version”-Header in docker-compose kann eine Warnung ausgeben; er ist unkritisch.
-- Ein Registry‑Push (ghcr) ist nicht nötig. Dieser Pfad ist bewusst “lokal bauen & nutzen”.
+- Warnung zum docker‑compose “version”‑Header kann ignoriert werden.
+- Kein ghcr‑Login nötig; Build läuft lokal.
 
 ## Systemanforderungen
 
