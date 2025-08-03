@@ -7,6 +7,9 @@ services:
       dockerfile: Dockerfile
     image: zammad-rag-ui:latest
     container_name: zammad-rag-ui
+    depends_on:
+      - qdrant
+      - ollama
     ports:
       - "5000:5000"
     environment:
@@ -22,9 +25,33 @@ services:
       # Standard-Embedding-Modell (build-time preload erfolgt im Dockerfile)
       EMBED_MODEL: intfloat/multilingual-e5-base
 
-      # Upstream-Services werden über /data/config/ticket_ingest.env konfiguriert
-      # Keine Default-Überschreibung hier, damit Host-Config greift
+      # Upstream-Defaults für lokale Compose-Nutzung (werden von ENV_FILE/Frontend überschrieben)
+      QDRANT_URL: http://qdrant:6333
+      OLLAMA_URL: http://ollama:11434
     volumes:
       - ./config:/data/config
       - ./cache:/data/cache
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    environment:
+      # Optionaler API-Key; wenn leer, ist Qdrant ohne Key erreichbar.
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    ports:
+      - "6333:6333"
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=1h
+    volumes:
+      - ./ollama:/root/.ollama
+    ports:
+      - "11434:11434"
     restart: unless-stopped

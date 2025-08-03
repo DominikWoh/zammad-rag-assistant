@@ -77,7 +77,7 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 ## Installation: One‑Liner (Download → Build → ENV → Up)
 
-Führt alles in einem Rutsch aus (Ubuntu, ohne ghcr). Danach ist die WebUI unter http://localhost:5000 erreichbar.
+Führt alles in einem Rutsch aus (Ubuntu). Danach ist die WebUI unter http://localhost:5000 erreichbar und Qdrant/Ollama laufen automatisch via docker compose.
 
 ```bash
 sudo apt update && sudo apt install -y ca-certificates curl && \
@@ -91,8 +91,10 @@ set -e && \
 git clone https://github.com/DominikWoh/zammad-rag-assistant.git || true && \
 cd zammad-rag-assistant && \
 git pull --rebase || true && \
-mkdir -p ./config ./cache ./logs && \
+mkdir -p ./config ./cache ./logs ./qdrant_storage ./ollama && \
 docker compose build && \
+# Optional: Qdrant API-Key setzen (leer lassen = kein API-Key)
+echo "QDRANT_API_KEY=" > .env && \
 cat > ./config/ticket_ingest.env << 'EOF'
 ZAMMAD_URL=http://localhost:8080
 ZAMMAD_TOKEN=
@@ -126,8 +128,8 @@ NG
 
 Hinweise
 - Falls newgrp docker in deiner Shell nicht wirkt, melde dich einmal ab/an oder starte ein neues Terminal.
-- Port 5000 belegt? In docker-compose.yml den Host‑Port anpassen (z. B. "5001:5000").
-- Standard‑Volumes: ./config → /data/config, ./cache → /data/cache, ./logs → /data/log.
+- Ports belegt? In docker-compose.yml Host‑Ports anpassen (z. B. "5001:5000", "6334:6333", "11435:11434").
+- Standard‑Volumes: ./config → /data/config, ./cache → /data/cache, ./qdrant_storage → /qdrant/storage, ./ollama → /root/.ollama.
 
 ## Systemanforderungen
 
@@ -190,9 +192,9 @@ Hinweise:
 
 ---
 
-## Installationsskripte (4 Teile)
+## Installationsskripte (Compose‑basiert)
 
-Diese vier Blöcke bilden die empfohlene Reihenfolge: 1) Update + Docker, 2) RAG‑UI + ENV, 3) Optional Qdrant + Ollama, 4) Start mit docker compose up -d.
+Empfohlene Reihenfolge: 1) Update + Docker, 2) RAG‑UI + ENV, 3) Start via docker compose (inkl. Qdrant + Ollama).
 
 ### Teil 1: Update + Docker installieren (Ubuntu)
 ```bash
@@ -213,8 +215,10 @@ set -e
 git clone https://github.com/DominikWoh/zammad-rag-assistant.git || true
 cd zammad-rag-assistant
 git pull --rebase || true
-mkdir -p ./config ./cache ./logs
+mkdir -p ./config ./cache ./logs ./qdrant_storage ./ollama
 docker compose build
+# Optional: Qdrant API-Key setzen (leer lassen = kein API-Key)
+echo "QDRANT_API_KEY=" > .env
 cat > ./config/ticket_ingest.env << 'EOF'
 ZAMMAD_URL=http://localhost:8080
 ZAMMAD_TOKEN=
@@ -241,21 +245,7 @@ INGEST_SCHEDULE=@daily 23:00
 EOF
 ```
 
-### Teil 3 (optional): Qdrant + Ollama lokal bereitstellen
-```bash
-# Qdrant (Vektor-Datenbank)
-docker run -d --name qdrant --restart unless-stopped \
-  -p 6333:6333 -v $(pwd)/qdrant_storage:/qdrant/storage qdrant/qdrant:latest
-
-# Ollama (LLM-Server)
-docker run -d --name ollama --restart unless-stopped \
-  -p 11434:11434 -v $(pwd)/ollama:/root/.ollama ollama/ollama:latest
-
-# Optional: Modell vorab laden (Beispiel)
-curl -s http://localhost:11434/api/pull -d '{"name":"llama3.1:8b"}'
-```
-
-### Teil 4: Starten
+### Teil 3: Starten (alle Services)
 ```bash
 docker compose up -d
 docker ps
@@ -269,7 +259,7 @@ echo "WebUI erreichbar unter: http://localhost:5000"
 
 Pfad: `/data/config/ticket_ingest.env` (über `ENV_FILE` steuerbar)
 
-Schnellstart‑Defaults für lokale Nutzung (Qdrant/Ollama via docker‑compose):
+Schnellstart‑Defaults für lokale Nutzung (Qdrant/Ollama via docker compose):
 ```
 ZAMMAD_URL=http://localhost:8080
 ZAMMAD_TOKEN=
@@ -294,6 +284,14 @@ MIN_TICKET_DATE=2025-01-01
 PROMPTS_DIR=/data/config/prompts
 INGEST_SCHEDULE=@daily 23:00
 ```
+
+Zusätzliches Compose‑.env im Projektwurzelverzeichnis:
+```
+# Optional: Qdrant API Key aktivieren
+QDRANT_API_KEY=
+```
+
+Hinweis: Die App verwendet intern die Service-Namen als Host (QDRANT_URL=http://qdrant:6333, OLLAMA_URL=http://ollama:11434), extern weiterhin localhost-Ports.
 
 Hinweise
 - `ZAMMAD_URL` und `ZAMMAD_TOKEN` bitte mit eurem System befüllen.
