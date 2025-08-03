@@ -127,14 +127,33 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 - Externe Services erreichbar: Qdrant, Ollama
 - Zammad‑URL + Token
 
-### Option A: docker‑compose (empfohlen)
+### Option A: docker‑compose (empfohlen, alles lokal: UI + Qdrant + Ollama)
 
 docker‑compose.yml (Beispiel)
 ```yaml
 version: "3.8"
 services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama:/root/.ollama
+    restart: unless-stopped
+
   rag-ui:
     image: ghcr.io/DominikWoh/zammad-rag-assistant:latest
+    depends_on:
+      - qdrant
+      - ollama
     ports:
       - "5000:5000"
     environment:
@@ -149,43 +168,72 @@ services:
 
 Start
 ```bash
-mkdir -p config cache logs
-touch config/ticket_ingest.env
+mkdir -p config cache logs qdrant_storage ollama
+# Standard-ENV erzeugen (lokale Default-Werte, siehe unten)
+cat > config/ticket_ingest.env << 'EOF'
+ZAMMAD_URL=http://localhost:8080
+ZAMMAD_TOKEN=
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=
+COLLECTION_NAME=zammad-collection
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+EMBED_MODEL=intfloat/multilingual-e5-base
+
+ENABLE_ASKKI=true
+ENABLE_RAG_NOTE=true
+
+TOP_K_RESULTS=5
+MAX_TOKENS=800
+TEMPERATURE=0.1
+TIMEOUT_SECONDS=220
+
+MIN_CLOSED_DAYS=14
+MIN_TICKET_DATE=2025-01-01
+
+PROMPTS_DIR=/data/config/prompts
+INGEST_SCHEDULE=@daily 23:00
+EOF
+
 docker compose up -d
 ```
 
 Öffnen: `http://localhost:5000`
 - Erstes Setup: WebUI‑Login anlegen
-- Config: `ZAMMAD_URL`, `ZAMMAD_TOKEN`, `QDRANT_URL`, `OLLAMA_URL`, `OLLAMA_MODEL`, `COLLECTION_NAME` setzen
-- Modelle bei Ollama ggf. pullen
+- Config ist bereits auf lokale Services (Qdrant/Ollama) voreingestellt
+- In der Config ggf. `ZAMMAD_URL`/`ZAMMAD_TOKEN` eintragen
+- Unter “Modelle” ein passendes Ollama‑Modell pullen (z. B. `llama3.1:8b`)
 - Qdrant‑Collection testen/erstellen
 - Poller auf Dashboard starten
 
-### Option B: direktes Docker
+### Option B: direktes Docker (mit lokalen Qdrant/Ollama)
+
+In separaten Terminals/Containern Qdrant und Ollama starten oder lokal bereitstellen, dann:
 
 ```bash
 docker run -p 5000:5000 \
   -v ./config:/data/config \
   -v ./cache:/data/cache \
   -v ./logs:/data/log \
+  -e ENV_FILE=/data/config/ticket_ingest.env \
   ghcr.io/DominikWoh/zammad-rag-assistant:latest
 ```
 
 ---
 
-## Konfiguration (.env)
+## Konfiguration (.env) – lokale Defaults schnell aktivieren
 
 Pfad: `/data/config/ticket_ingest.env` (über `ENV_FILE` steuerbar)
 
-Wichtige Keys:
+Schnellstart‑Defaults für lokale Nutzung (Qdrant/Ollama via docker‑compose):
 ```
-ZAMMAD_URL=http://zammad:8080
-ZAMMAD_TOKEN=...
-QDRANT_URL=http://qdrant:6333
+ZAMMAD_URL=http://localhost:8080
+ZAMMAD_TOKEN=
+QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=
 COLLECTION_NAME=zammad-collection
-OLLAMA_URL=http://ollama:11434
-OLLAMA_MODEL=gemma3n:latest
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
 EMBED_MODEL=intfloat/multilingual-e5-base
 
 ENABLE_ASKKI=true
@@ -202,6 +250,12 @@ MIN_TICKET_DATE=2025-01-01
 PROMPTS_DIR=/data/config/prompts
 INGEST_SCHEDULE=@daily 23:00
 ```
+
+Hinweise
+- `ZAMMAD_URL` und `ZAMMAD_TOKEN` bitte mit eurem System befüllen.
+- `OLLAMA_MODEL` beliebig wählen; im UI unter “Modelle” per Pull laden.
+- Flags `ENABLE_ASKKI`/`ENABLE_RAG_NOTE` werden alle 10 s im Poller nachgeladen (Hot‑Reload).
+- Prompts: `askai.env` und `rag_prompt.env` in `PROMPTS_DIR` überschreiben Defaults.
 
 Hinweise
 - Die Flags `ENABLE_ASKKI`/`ENABLE_RAG_NOTE` werden alle 10 s im Poller nachgeladen (Hot‑Reload).
