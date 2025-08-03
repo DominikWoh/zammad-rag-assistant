@@ -75,49 +75,24 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 ---
 
-## Installation: Download → Build → ENV → Up
+## Installation: One‑Liner (Download → Build → ENV → Up)
 
-Dieser Pfad ist bewusst ohne Registry (ghcr). Reihenfolge exakt befolgen: erst Docker installieren, dann Repo klonen/aktualisieren, dann build, dann ENV schreiben, dann Up.
+Führt alles in einem Rutsch aus (Ubuntu, ohne ghcr). Danach ist die WebUI unter http://localhost:5000 erreichbar.
 
-1) Docker installieren (Ubuntu)
-```
+```bash
 sudo apt update && sudo apt install -y ca-certificates curl && \
 sudo install -m 0755 -d /etc/apt/keyrings && \
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null && \
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
 sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
-sudo usermod -aG docker $USER
-```
-Ab- und wieder anmelden, damit Gruppenrechte greifen.
-
-2) Repository holen oder aktualisieren
-- Neu:
-```
-git clone https://github.com/DominikWoh/zammad-rag-assistant.git
-cd zammad-rag-assistant
-```
-- Bereits vorhanden:
-```
-cd zammad-rag-assistant
-git pull --rebase
-```
-
-3) Build vorbereiten und Image bauen
-- Verzeichnisse anlegen:
-```
-mkdir -p ./config ./cache ./logs
-```
-- Image bauen (lokal, ohne ghcr):
-```
-docker compose build
-# Alternative:
-# docker build -t zammad-rag-ui:latest .
-```
-
-4) ENV schreiben (nach dem Build!)
-Standard‑ENV für lokale Nutzung (Qdrant/Ollama via Compose):
-```
+sudo usermod -aG docker $USER && \
+newgrp docker <<'NG' && \
+set -e && \
+git clone https://github.com/DominikWoh/zammad-rag-assistant.git || true && \
+cd zammad-rag-assistant && \
+git pull --rebase || true && \
+mkdir -p ./config ./cache ./logs && \
+docker compose build && \
 cat > ./config/ticket_ingest.env << 'EOF'
 ZAMMAD_URL=http://localhost:8080
 ZAMMAD_TOKEN=
@@ -142,28 +117,16 @@ MIN_TICKET_DATE=2025-01-01
 PROMPTS_DIR=/data/config/prompts
 INGEST_SCHEDULE=@daily 23:00
 EOF
+docker compose up -d && \
+docker ps && \
+echo "Fertig: WebUI auf http://localhost:5000"
+NG
 ```
-
-5) Container starten
-```
-docker compose up -d
-```
-Status/Logs:
-```
-docker ps
-docker compose logs -f
-```
-
-6) Optional: Ports/Volumes anpassen
-- Port 5000 belegt? In docker-compose.yml “HOSTPORT:5000” anpassen, z. B. "5001:5000".
-- Standard‑Volumes:
-  - ./config → /data/config
-  - ./cache  → /data/cache
-  - ./logs   → /data/log
 
 Hinweise
-- Warnung zum docker‑compose “version”‑Header kann ignoriert werden.
-- Kein ghcr‑Login nötig; Build läuft lokal.
+- Falls newgrp docker in deiner Shell nicht wirkt, melde dich einmal ab/an oder starte ein neues Terminal.
+- Port 5000 belegt? In docker-compose.yml den Host‑Port anpassen (z. B. "5001:5000").
+- Standard‑Volumes: ./config → /data/config, ./cache → /data/cache, ./logs → /data/log.
 
 ## Systemanforderungen
 
