@@ -2,11 +2,13 @@
 
 Einfaches, Single-Container WebUI für Retrieval‑Augmented Generation (RAG) mit Zammad. Bindet externe Qdrant‑ und Ollama‑Services an, steuert einen internen RAG‑Poller (Threads) und Batch‑Import, und verwaltet Konfigurationen zentral via `.env`. Ideal für Helpdesk‑Teams, die bestehende Ticket‑Historie für schnellere Antworten nutzbar machen wollen.
 
+Repository: https://github.com/DominikWoh/zammad-rag-assistant
+
 ---
 
 ## Badges
 
-- Image: `ghcr.io/myuser/zammad-rag-ui`
+- Image: `ghcr.io/DominikWoh/zammad-rag-assistant`
 - Lizenz: MIT
 - Stack: FastAPI, Vanilla JS, Qdrant, Ollama, SentenceTransformers
 
@@ -104,7 +106,7 @@ docker‑compose.yml (Beispiel)
 version: "3.8"
 services:
   rag-ui:
-    image: ghcr.io/myuser/zammad-rag-ui:latest
+    image: ghcr.io/DominikWoh/zammad-rag-assistant:latest
     ports:
       - "5000:5000"
     environment:
@@ -138,7 +140,7 @@ docker run -p 5000:5000 \
   -v ./config:/data/config \
   -v ./cache:/data/cache \
   -v ./logs:/data/log \
-  ghcr.io/myuser/zammad-rag-ui:latest
+  ghcr.io/DominikWoh/zammad-rag-assistant:latest
 ```
 
 ---
@@ -287,7 +289,7 @@ MIT
 
 ## Hinweis zum Image
 
-- Öffentliches Image: `ghcr.io/myuser/zammad-rag-ui`
+- Öffentliches Image: `ghcr.io/DominikWoh/zammad-rag-assistant`
 - Alternativ: lokalen Build nutzen
   - `docker build -t zammad-rag-ui .`
   - `docker run … zammad-rag-ui`
