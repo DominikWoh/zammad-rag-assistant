@@ -1,16 +1,29 @@
 # Zammad RAG Assistant WebUI
 
-Einfaches, Single-Container WebUI für Retrieval‑Augmented Generation (RAG) mit Zammad. Bindet externe Qdrant‑ und Ollama‑Services an, steuert einen internen RAG‑Poller (Threads) und Batch‑Import, und verwaltet Konfigurationen zentral via `.env`. Ideal für Helpdesk‑Teams, die bestehende Ticket‑Historie für schnellere Antworten nutzbar machen wollen.
+![Hero](./Antwort von KI basierend auf vorherige Tickets.png)
+
+Die einfache KI‑Erweiterung für Zammad: Diese Weboberfläche verbindet Ihr Zammad‑Helpdesk mit moderner AI/LLM‑Technologie. Dank Retrieval‑Augmented Generation (RAG) nutzt die App Ihre vorhandenen Tickets als Wissensquelle, um schneller bessere Antworten zu finden – ohne Ihre Daten an Dritte zu senden.
+
+Kurz gesagt: Der Zammad RAG Assistant liest neue oder markierte Tickets, sucht automatisch nach ähnlichen Fällen in Ihrer Ticket‑Historie und erstellt eine hilfreiche interne Notiz mit Lösungsvorschlägen. Sie behalten die Kontrolle, sparen Recherchezeit und erhöhen die Erstlösungsquote.
 
 Repository: https://github.com/DominikWoh/zammad-rag-assistant
 
 ---
 
+## Was ist RAG – in 30 Sekunden (für Anwender)
+
+RAG steht für “Retrieval‑Augmented Generation”. Bevor ein KI‑Modell (LLM) antwortet, holt es sich passendes Wissen aus Ihren eigenen Daten (z. B. gelöste Tickets in Zammad). Die KI formuliert dann auf Basis dieser Fakten eine Antwort. Ergebnis: weniger Halluzinationen, mehr Praxisbezug.
+
+Typische Vorteile:
+- Schnellere Antworten durch Wiederverwendung von Lösungen aus ähnlichen Fällen
+- Konsistente Qualität – die KI schreibt Hinweise für Techniker, kein Marketingtext
+- Datenschutz: Ihre Daten bleiben bei Ihnen (Ollama + Qdrant können on‑prem laufen)
+
 ## Badges
 
 - Image: `ghcr.io/DominikWoh/zammad-rag-assistant`
 - Lizenz: MIT
-- Stack: FastAPI, Vanilla JS, Qdrant, Ollama, SentenceTransformers
+- Stack: FastAPI, Vanilla JS, Qdrant (Vektor‑DB), Ollama (lokale LLMs), SentenceTransformers
 
 ---
 
@@ -32,20 +45,30 @@ Repository: https://github.com/DominikWoh/zammad-rag-assistant
 
 ---
 
+## So funktioniert es (einfach erklärt)
+
+1) Sie verbinden die App mit Ihrem Zammad, Qdrant (Vektor‑Suche) und Ollama (LLM/AI).
+2) Die App liest passende Tickets (neu/offen oder mit “askai” markiert).
+3) Zu jedem Ticket sucht sie ähnliche Fälle in Ihrer Ticket‑Historie (RAG).
+4) Die KI erstellt eine interne Notiz mit konkreten Lösungsschritten – kein Marketing, keine Floskeln.
+5) Ihr Team prüft/ergänzt und antwortet schneller.
+
+Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden sehen diese nicht.
+
 ## Features
 
-- Single‑Container FastAPI Web‑UI (kein systemd im Container)
-- Externe Services: Qdrant (Vektordatenbank) und Ollama (LLM)
-- Zammad‑Integration: Token‑Auth; Poller verarbeitet Tickets und postet Notizen
-- RAG‑ und AskAI‑Workflows:
-  - RAG: Bei “neuen/offenen” Tickets mit einem Artikel
-  - AskAI: Bei mehrteiligen Tickets mit “askai” im letzten Artikel
-- Multi‑Vektor‑Schema in Qdrant: `kurzbeschreibung`, `beschreibung`, `lösung`, `all` (768, Cosine)
-- Aktivitäten‑Panel (Dashboard): letzte Aktionen, Fallback aus Qdrant
-- Batch‑Import (Zammad ‑> Qdrant) + Scheduler (`@hourly`, `@daily HH:MM`, primitive `M H * * *`)
-- Konfiguration via `.env` in host‑persistenten Volumes
-- Live‑Flags mit Hot‑Reload: `ENABLE_ASKKI`, `ENABLE_RAG_NOTE`
-- Sanitizing: Entfernt `<think>...</think>` und Reasoning‑Präfixe vor dem Posten
+- Einfache KI‑Erweiterung für Zammad mit RAG und AskAI
+- Single‑Container Web‑UI, keinerlei systemd im Container nötig
+- Externe Services: Qdrant (Vektordatenbank) und Ollama (LLM/AI)
+- Zammad‑Integration per Token; Poller verarbeitet Tickets und postet Notizen
+- Zwei Modi:
+  - RAG: bei “neu/offen” und 1 Artikel
+  - AskAI: wenn im letzten Artikel “askai” vorkommt
+- Multi‑Vektor‑Suche in Qdrant: `kurzbeschreibung`, `beschreibung`, `lösung`, `all`
+- Dashboard: Service‑Status, Poller‑Steuerung, Ingest‑Status, letzte Aktivitäten
+- Batch‑Import (Zammad → Qdrant) mit einfachem Zeitplaner
+- Konfiguration via `.env` (persistente Volumes), Flags mit Hot‑Reload
+- Sicherheitsnetz: Entfernt automatisch `<think>`/Reasoning‑Teile aus LLM‑Antworten
 
 ---
 
@@ -83,11 +106,16 @@ Repository: https://github.com/DominikWoh/zammad-rag-assistant
   - Poller‑Steuerung (Start/Stop/Restart)
   - Ingest‑Status und Start
   - Letzte Aktivitäten (Top‑5; neueste oben; Uhrzeit rechts)
+
+  ![Dashboard](./Zammad RAG Assistant Dashboard.png)
+
 - Config
   - Form zur Eingabe von URLs, Tokens, Flags (`ENABLE_ASKKI`, `ENABLE_RAG_NOTE`)
   - Qdrant‑Collection‑Check/Erstellung (Multi‑Vektor)
   - Ollama‑Modelle anzeigen/pullen/löschen
   - Ingest‑Schedule setzen und Ingest starten
+
+  ![Konfiguration](./Zammad RAG Assistant Konfiguration.png)
 
 ---
 
