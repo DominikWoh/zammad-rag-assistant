@@ -38,7 +38,7 @@ services:
     container_name: qdrant
     environment:
       # Optionaler API-Key; wenn leer, ist Qdrant ohne Key erreichbar.
-      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT__SERVICE__API_KEY: sdfasdohojnoIZGIUZGoisf897ds9hfdfbghsd
     volumes:
       - ./qdrant_storage:/qdrant/storage
     ports:
