@@ -190,64 +190,32 @@ Hinweise:
 
 ---
 
-## Quickstart
+## Installationsskripte (4 Teile)
 
-### Voraussetzungen
+Diese vier Blöcke bilden die empfohlene Reihenfolge: 1) Update + Docker, 2) RAG‑UI + ENV, 3) Optional Qdrant + Ollama, 4) Start mit docker compose up -d.
 
-- Docker + docker‑compose
-- Externe Services erreichbar: Qdrant, Ollama
-- Zammad‑URL + Token
-
-### 1. Docker Installation
-
-```
-sudo apt update && sudo apt install -y ca-certificates curl && sudo install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && sudo usermod -aG docker $USER
-```
-
-### Option A: docker‑compose (empfohlen, alles lokal: UI + Qdrant + Ollama)
-
-docker‑compose.yml (Beispiel)
-```yaml
-version: "3.8"
-services:
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"
-    volumes:
-      - ./qdrant_storage:/qdrant/storage
-    restart: unless-stopped
-
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ./ollama:/root/.ollama
-    restart: unless-stopped
-
-  rag-ui:
-    image: ghcr.io/DominikWoh/zammad-rag-assistant:latest
-    depends_on:
-      - qdrant
-      - ollama
-    ports:
-      - "5000:5000"
-    environment:
-      - ENV_FILE=/data/config/ticket_ingest.env
-    volumes:
-      - ./config:/data/config
-      - ./cache:/data/cache
-      # optional für Aktivitäten-Logs:
-      - ./logs:/data/log
-    restart: unless-stopped
-```
-
-Start
+### Teil 1: Update + Docker installieren (Ubuntu)
 ```bash
-mkdir -p config cache logs qdrant_storage ollama
-# Standard-ENV erzeugen (lokale Default-Werte, siehe unten)
-cat > config/ticket_ingest.env << 'EOF'
+sudo apt update && sudo apt install -y ca-certificates curl && \
+sudo install -m 0755 -d /etc/apt/keyrings && \
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null && \
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
+sudo usermod -aG docker $USER && \
+echo "Docker installiert. Bitte ggf. neu anmelden oder 'newgrp docker' ausführen."
+```
+
+### Teil 2: RAG‑UI herunterladen, bauen und ENV erstellen
+```bash
+set -e
+# ggf. neue Shell mit Docker-Gruppe: newgrp docker
+git clone https://github.com/DominikWoh/zammad-rag-assistant.git || true
+cd zammad-rag-assistant
+git pull --rebase || true
+mkdir -p ./config ./cache ./logs
+docker compose build
+cat > ./config/ticket_ingest.env << 'EOF'
 ZAMMAD_URL=http://localhost:8080
 ZAMMAD_TOKEN=
 QDRANT_URL=http://localhost:6333
@@ -271,29 +239,28 @@ MIN_TICKET_DATE=2025-01-01
 PROMPTS_DIR=/data/config/prompts
 INGEST_SCHEDULE=@daily 23:00
 EOF
-
-docker compose up -d
 ```
 
-Öffnen: `http://localhost:5000`
-- Erstes Setup: WebUI‑Login anlegen
-- Config ist bereits auf lokale Services (Qdrant/Ollama) voreingestellt
-- In der Config ggf. `ZAMMAD_URL`/`ZAMMAD_TOKEN` eintragen
-- Unter “Modelle” ein passendes Ollama‑Modell pullen (z. B. `llama3.1:8b`)
-- Qdrant‑Collection testen/erstellen
-- Poller auf Dashboard starten
-
-### Option B: direktes Docker (mit lokalen Qdrant/Ollama)
-
-In separaten Terminals/Containern Qdrant und Ollama starten oder lokal bereitstellen, dann:
-
+### Teil 3 (optional): Qdrant + Ollama lokal bereitstellen
 ```bash
-docker run -p 5000:5000 \
-  -v ./config:/data/config \
-  -v ./cache:/data/cache \
-  -v ./logs:/data/log \
-  -e ENV_FILE=/data/config/ticket_ingest.env \
-  ghcr.io/DominikWoh/zammad-rag-assistant:latest
+# Qdrant (Vektor-Datenbank)
+docker run -d --name qdrant --restart unless-stopped \
+  -p 6333:6333 -v $(pwd)/qdrant_storage:/qdrant/storage qdrant/qdrant:latest
+
+# Ollama (LLM-Server)
+docker run -d --name ollama --restart unless-stopped \
+  -p 11434:11434 -v $(pwd)/ollama:/root/.ollama ollama/ollama:latest
+
+# Optional: Modell vorab laden (Beispiel)
+curl -s http://localhost:11434/api/pull -d '{"name":"llama3.1:8b"}'
+```
+
+### Teil 4: Starten
+```bash
+docker compose up -d
+docker ps
+docker compose logs -f --tail=50
+echo "WebUI erreichbar unter: http://localhost:5000"
 ```
 
 ---
