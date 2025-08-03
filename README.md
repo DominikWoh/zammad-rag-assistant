@@ -307,6 +307,7 @@ Ingest:
 
 ## Roadmap
 
+- Multilingual
 - Live‑Streaming der Ingest‑Logs (WebSocket/SSE)
 - Erweiterte Scheduler‑Syntax (Sekunden/vollständige Crontab)
 - Poller‑Aktivitäten ins Aktivitäten‑Panel integrieren
