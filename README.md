@@ -75,60 +75,6 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 ---
 
-## Installation: One‑Liner (Download → Build → ENV → Up)
-
-Führt alles in einem Rutsch aus (Ubuntu, ohne ghcr). Danach ist die WebUI unter http://localhost:5000 erreichbar.
-
-```bash
-sudo apt update && sudo apt install -y ca-certificates curl && \
-sudo install -m 0755 -d /etc/apt/keyrings && \
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null && \
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
-sudo usermod -aG docker $USER && \
-newgrp docker <<'NG' && \
-set -e && \
-git clone https://github.com/DominikWoh/zammad-rag-assistant.git || true && \
-cd zammad-rag-assistant && \
-git pull --rebase || true && \
-mkdir -p ./config ./cache ./logs && \
-docker compose build && \
-cat > ./config/ticket_ingest.env << 'EOF'
-ZAMMAD_URL=http://localhost:8080
-ZAMMAD_TOKEN=
-QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=
-COLLECTION_NAME=zammad-collection
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-EMBED_MODEL=intfloat/multilingual-e5-base
-
-ENABLE_ASKKI=true
-ENABLE_RAG_NOTE=true
-
-TOP_K_RESULTS=5
-MAX_TOKENS=800
-TEMPERATURE=0.1
-TIMEOUT_SECONDS=220
-
-MIN_CLOSED_DAYS=14
-MIN_TICKET_DATE=2025-01-01
-
-PROMPTS_DIR=/data/config/prompts
-INGEST_SCHEDULE=@daily 23:00
-EOF
-docker compose up -d && \
-docker ps && \
-docker compose logs -f --tail=50 & sleep 3 && \
-echo "Fertig: WebUI auf http://localhost:5000"
-NG
-```
-
-Hinweise
-- Falls newgrp docker in deiner Shell nicht wirkt, melde dich einmal ab/an oder starte ein neues Terminal.
-- Port 5000 belegt? In docker-compose.yml den Host‑Port anpassen (z. B. "5001:5000").
-- Standard‑Volumes: ./config → /data/config, ./cache → /data/cache, ./logs → /data/log.
-
 ## Systemanforderungen
 
 Für einen reibungslosen Betrieb mit lokaler Qdrant‑Datenbank und Ollama‑LLMs empfehlen wir:
@@ -250,9 +196,6 @@ docker run -d --name qdrant --restart unless-stopped \
 # Ollama (LLM-Server)
 docker run -d --name ollama --restart unless-stopped \
   -p 11434:11434 -v $(pwd)/ollama:/root/.ollama ollama/ollama:latest
-
-# Optional: Modell vorab laden (Beispiel)
-curl -s http://localhost:11434/api/pull -d '{"name":"llama3.1:8b"}'
 ```
 
 ### Teil 4: Starten
