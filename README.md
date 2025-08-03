@@ -29,20 +29,20 @@ Typische Vorteile:
 
 ## Inhalt
 
-- Features
-- Systemanforderungen
-- Architektur
-- Datenmodell in Qdrant
-- UI / Screens
-- Quickstart
-- Konfiguration (.env)
-- API‑Überblick
-- Interna: Poller, Batch‑Import, Scheduler
-- Logging & Aktivitäten
-- Sicherheit & Auth
-- Roadmap
-- Lizenz
-- Datei‑Hinweise
+- ✨ Features
+- 🧩 Systemanforderungen
+- 🏗️ Architektur
+- 🗃️ Datenmodell in Qdrant
+- 🖥️ UI / Screens
+- 🚀 Quickstart
+- ⚙️ Konfiguration (.env)
+- 🔌 API‑Überblick
+- 🔁 Interna: Poller, Batch‑Import, Scheduler
+- 📝 Logging & Aktivitäten
+- 🔐 Sicherheit & Auth
+- 🗺️ Roadmap
+- 📄 Lizenz
+- 📦 Datei‑Hinweise
 
 ---
 
@@ -58,20 +58,20 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 ## Features
 
-- Einfache KI‑Erweiterung für Zammad mit RAG und AskAI
-- **Datenschutz: lokale KI/AI & LLMs** mit Ollama – Daten bleiben on‑prem
-- **Effizienzsteigerung bei vielen Tickets** dank Wiederverwendung gelöster Fälle
-- Single‑Container Web‑UI, keinerlei systemd im Container nötig
-- Externe Services: Qdrant (Vektordatenbank) und Ollama (LLM/AI)
-- Zammad‑Integration per Token; Poller verarbeitet Tickets und postet Notizen
-- Zwei Modi:
-  - RAG: bei “neu/offen” und 1 Artikel
-  - AskAI: wenn im letzten Artikel “askai” vorkommt
-- Multi‑Vektor‑Suche in Qdrant: `kurzbeschreibung`, `beschreibung`, `lösung`, `all`
-- Dashboard: Service‑Status, Poller‑Steuerung, Ingest‑Status, letzte Aktivitäten
-- Batch‑Import (Zammad → Qdrant) mit einfachem Zeitplaner
-- Konfiguration via `.env` (persistente Volumes), Flags mit Hot‑Reload
-- Sicherheitsnetz: Entfernt automatisch `<think>`/Reasoning‑Teile aus LLM‑Antworten
+- 🤖 Einfache KI‑Erweiterung für Zammad mit RAG und AskAI
+- 🔒 **Datenschutz: lokale KI/AI & LLMs** mit Ollama – Daten bleiben on‑prem
+- ⚡ **Effizienzsteigerung bei vielen Tickets** durch Wiederverwendung gelöster Fälle
+- 🧱 Single‑Container Web‑UI, keinerlei systemd im Container nötig
+- 🔗 Externe Services: Qdrant (Vektordatenbank) und Ollama (LLM/AI)
+- 🎫 Zammad‑Integration per Token; Poller verarbeitet Tickets und postet Notizen
+- 🔀 Zwei Modi:
+  - 📎 RAG: bei “neu/offen” und 1 Artikel
+  - ✍️ AskAI: wenn im letzten Artikel “askai” vorkommt
+- 🔍 Multi‑Vektor‑Suche in Qdrant: `kurzbeschreibung`, `beschreibung`, `lösung`, `all`
+- 📊 Dashboard: Service‑Status, Poller‑Steuerung, Ingest‑Status, letzte Aktivitäten
+- 📦 Batch‑Import (Zammad → Qdrant) mit einfachem Zeitplaner
+- 🧰 Konfiguration via `.env` (persistente Volumes), Flags mit Hot‑Reload
+- 🧹 Sicherheitsnetz: Entfernt automatisch `<think>`/Reasoning‑Teile aus LLM‑Antworten
 
 ---
 
@@ -79,13 +79,15 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 Für einen reibungslosen Betrieb mit lokaler Qdrant‑Datenbank und Ollama‑LLMs empfehlen wir:
 
-- **Betriebssystem:** Ubuntu 24.04 LTS
-- **CPU:** mind. 12 Threads
-- **RAM:** 12–16 GB
-- **Speicher:** mind. 50 GB (Modelle + Vektordaten + Logs)
-- **Netzwerk:** stabile Verbindung zwischen UI, Qdrant und Ollama (lokal oder im LAN)
+- 🐧 **Betriebssystem:** Ubuntu 24.04 LTS
+- 🧮 **CPU:** mind. 12 Threads
+- 🧠 **RAM:** 12–16 GB
+- 💾 **Speicher:** mind. 50 GB (Modelle + Vektordaten + Logs)
+- 🌐 **Netzwerk:** stabile Verbindung zwischen UI, Qdrant und Ollama (lokal oder im LAN)
 
-Die App skaliert mit der Ticketmenge. Bei sehr vielen Tickets profitieren Sie besonders von der **Effizienzsteigerung** durch RAG‑Suche und Wiederverwendung von Lösungen.
+Hinweise:
+- ✅ Die App skaliert mit der Ticketmenge.
+- 🚀 Besonders bei vielen Tickets spürbare **Effizienzsteigerung** durch RAG‑Suche und Wiederverwendung von Lösungen.
 
 ## Architektur
 
