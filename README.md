@@ -2,7 +2,7 @@
 
 ![Hero](Antwort%20von%20KI%20basierend%20auf%20vorherige%20Tickets.png)
 
-Die einfache KI‑Erweiterung für Zammad: Diese Weboberfläche verbindet Ihr Zammad‑Helpdesk mit moderner AI/LLM‑Technologie. Dank Retrieval‑Augmented Generation (RAG) nutzt die App Ihre vorhandenen Tickets als Wissensquelle, um schneller bessere Antworten zu finden – ohne Ihre Daten an Dritte zu senden.
+Die einfache KI‑Erweiterung für Zammad: Diese Weboberfläche verbindet Ihr Zammad‑Helpdesk mit moderner AI/LLM‑Technologie. Dank Retrieval‑Augmented Generation (RAG) nutzt die App Ihre vorhandenen Tickets als Wissensquelle, um schneller bessere Antworten zu finden – ohne Ihre Daten an Dritte zu senden, **LOKAL UND SICHER**.
 
 Kurz gesagt: Der Zammad RAG Assistant liest neue oder markierte Tickets, sucht automatisch nach ähnlichen Fällen in Ihrer Ticket‑Historie und erstellt eine hilfreiche interne Notiz mit Lösungsvorschlägen. Sie behalten die Kontrolle, sparen Recherchezeit und erhöhen die Erstlösungsquote.
 
@@ -183,6 +183,12 @@ Hinweise:
 - Docker + docker‑compose
 - Externe Services erreichbar: Qdrant, Ollama
 - Zammad‑URL + Token
+
+### 1. Docker Installation
+
+```
+sudo apt update && sudo apt install -y ca-certificates curl && sudo install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null && sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && sudo usermod -aG docker $USER
+```
 
 ### Option A: docker‑compose (empfohlen, alles lokal: UI + Qdrant + Ollama)
 
