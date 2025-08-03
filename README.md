@@ -119,6 +119,7 @@ INGEST_SCHEDULE=@daily 23:00
 EOF
 docker compose up -d && \
 docker ps && \
+docker compose logs -f --tail=50 & sleep 3 && \
 echo "Fertig: WebUI auf http://localhost:5000"
 NG
 ```
