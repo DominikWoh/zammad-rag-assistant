@@ -75,6 +75,46 @@ Hinweis: Der Assistent schreibt standardmäßig interne Notizen – Ihre Kunden 
 
 ---
 
+## Installation: Download, Build & Up
+
+Dieser Weg benötigt keinen Registry‑Login (ghcr). Du baust das Image lokal aus dem Git‑Stand und startest es mit docker‑compose.
+
+1) Repository beziehen oder aktualisieren
+- Neu klonen:
+  git clone https://github.com/DominikWoh/zammad-rag-assistant.git
+  cd zammad-rag-assistant
+- Bereits vorhanden:
+  git pull --rebase
+
+2) Konfigurationsverzeichnisse anlegen
+- Verzeichnisse für persistente Daten:
+  mkdir -p ./config ./cache
+- Lege deine ENV unter ./config/ticket_ingest.env ab (siehe Abschnitt “Konfiguration (.env)”)
+
+3) Lokales Docker‑Image bauen
+- Mit docker‑compose:
+  docker compose build
+- Alternativ direkt mit Docker (optional Tag):
+  docker build -t zammad-rag-ui:latest .
+
+4) Container starten
+- Mit docker‑compose:
+  docker compose up -d
+- Status/Logs:
+  docker ps
+  docker compose logs -f
+
+5) Ports/Volumes anpassen (optional)
+- Wenn Port 5000 belegt ist, passe in docker-compose.yml die Zeile an:
+  "HOSTPORT:5000"  # z. B. "5001:5000"
+- Volumes sind standardmäßig:
+  ./config -> /data/config
+  ./cache  -> /data/cache
+
+Hinweise
+- Der “version”-Header in docker-compose kann eine Warnung ausgeben; er ist unkritisch.
+- Ein Registry‑Push (ghcr) ist nicht nötig. Dieser Pfad ist bewusst “lokal bauen & nutzen”.
+
 ## Systemanforderungen
 
 Für einen reibungslosen Betrieb mit lokaler Qdrant‑Datenbank und Ollama‑LLMs empfehlen wir:
