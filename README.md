@@ -2,7 +2,7 @@
 
 ![Hero](Antwort%20von%20KI%20basierend%20auf%20vorherige%20Tickets.png)
 
-Die einfache KI‑Erweiterung für Zammad: Diese Weboberfläche verbindet Ihr Zammad‑Helpdesk mit moderner AI/LLM‑Technologie. Dank Retrieval‑Augmented Generation (RAG) nutzt die App Ihre vorhandenen Tickets als Wissensquelle, um schneller bessere Antworten zu finden – ohne Ihre Daten an Dritte zu senden.
+Die einfache KI‑Erweiterung für Zammad: Diese Weboberfläche verbindet Ihr Zammad‑Helpdesk mit moderner AI/LLM‑Technologie. Dank Retrieval‑Augmented Generation (RAG) nutzt die App Ihre vorhandenen Tickets als Wissensquelle, um schneller bessere Antworten zu finden – ohne Ihre Daten an Dritte zu senden, **LOKAL UND SICHER**.
 
 Kurz gesagt: Der Zammad RAG Assistant liest neue oder markierte Tickets, sucht automatisch nach ähnlichen Fällen in Ihrer Ticket‑Historie und erstellt eine hilfreiche interne Notiz mit Lösungsvorschlägen. Sie behalten die Kontrolle, sparen Recherchezeit und erhöhen die Erstlösungsquote.
 
