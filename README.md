@@ -162,32 +162,6 @@ cd zammad-rag-assistant
 git pull --rebase || true
 mkdir -p ./config ./cache ./logs ./qdrant_storage ./ollama
 docker compose build
-# Optional: Qdrant API-Key setzen (leer lassen = kein API-Key)
-echo "QDRANT_API_KEY=" > .env
-cat > ./config/ticket_ingest.env << 'EOF'
-ZAMMAD_URL=http://localhost:8080
-ZAMMAD_TOKEN=
-QDRANT_URL=http://localhost:6333
-QDRANT_API_KEY=
-COLLECTION_NAME=zammad-collection
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-EMBED_MODEL=intfloat/multilingual-e5-base
-
-ENABLE_ASKKI=true
-ENABLE_RAG_NOTE=true
-
-TOP_K_RESULTS=5
-MAX_TOKENS=800
-TEMPERATURE=0.1
-TIMEOUT_SECONDS=220
-
-MIN_CLOSED_DAYS=14
-MIN_TICKET_DATE=2025-01-01
-
-PROMPTS_DIR=/data/config/prompts
-INGEST_SCHEDULE=@daily 23:00
-EOF
 ```
 
 ### Teil 3: Starten (alle Services)
