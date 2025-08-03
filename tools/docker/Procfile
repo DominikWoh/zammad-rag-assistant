@@ -1,2 +1,0 @@
-web: bash -lc "cd web-ui/backend && if [ -f ../../venv/bin/activate ]; then . ../../venv/bin/activate; fi; exec python main.py"
-worker: bash -lc "cd web-ui && if [ -f ./venv/bin/activate ]; then . ./venv/bin/activate; fi; exec python Services/zammad_rag_poller.py"

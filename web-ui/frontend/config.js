@@ -24,9 +24,10 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("zammad-url").value = config.ZAMMAD_URL || "";
             document.getElementById("zammad-token").value = config.ZAMMAD_TOKEN || "";
             document.getElementById("ollama-url").value = config.OLLAMA_URL || "";
+            document.getElementById("qdrant-url").value = config.QDRANT_URL || "";
             document.getElementById("qdrant-collection").value = config.COLLECTION_NAME || "";
             document.getElementById("qdrant-api-key").value = config.QDRANT_API_KEY || "";
-            document.getElementById("min-closed-days").value = config.MIN_CLOSED_DAYS || "";
+            document.getElementById("min-closed-days").value = (config.MIN_CLOSED_DAYS ?? "").toString();
             document.getElementById("min-date").value = config.MIN_TICKET_DATE || "";
 
             // Neue KI-Flags mit Defaults (ASKKI=false, RAG=true)
@@ -53,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ZAMMAD_TOKEN: document.getElementById("zammad-token").value,
             OLLAMA_URL: document.getElementById("ollama-url").value,
             OLLAMA_MODEL: selectedModel, // Ausgewähltes Modell verwenden
+            QDRANT_URL: document.getElementById("qdrant-url").value,
             COLLECTION_NAME: document.getElementById("qdrant-collection").value,
             QDRANT_API_KEY: document.getElementById("qdrant-api-key").value,
             MIN_CLOSED_DAYS: document.getElementById("min-closed-days").value,
@@ -249,7 +251,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const res = await fetch("/api/qdrant/test", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ collection, api_key: apiKey })
+                    body: JSON.stringify({ url: document.getElementById("qdrant-url").value.trim(), collection, api_key: apiKey })
                 });
                 if (handleApiError(res)) return;
                 const data = await res.json();

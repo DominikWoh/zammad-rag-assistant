@@ -10,27 +10,18 @@ import requests
 from datetime import datetime, timedelta, timezone
 from bs4 import BeautifulSoup
 
-# Einheitliche .env-Detektion wie die Web-UI
-WINDOWS_ENV_PATH = os.path.join(os.getcwd(), ".env")
-UBUNTU_ENV_PATH = "/opt/ai-suite/ticket_ingest.env"
+# Einheitliches .env-Handling für Docker
+ENV_FILE = os.getenv("ENV_FILE", "/data/config/ticket_ingest.env")
+if os.path.isfile(ENV_FILE):
+    load_dotenv(ENV_FILE)
 
-def detect_env_path():
-    if os.path.isfile(WINDOWS_ENV_PATH):
-        return WINDOWS_ENV_PATH
-    elif os.path.isfile(UBUNTU_ENV_PATH):
-        return UBUNTU_ENV_PATH
-    else:
-        # Lokale .env anlegen, falls nicht vorhanden
-        open(WINDOWS_ENV_PATH, "a", encoding="utf-8").close()
-        return WINDOWS_ENV_PATH
-
-ENV_PATH = detect_env_path()
-load_dotenv(ENV_PATH)
-
-# Prompt-ENVs aus dem Services-Ordner laden
-_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(os.path.join(_THIS_DIR, "is_ticket_helpfull.env"), override=True)
-load_dotenv(os.path.join(_THIS_DIR, "summarize_ticket.env"), override=True)
+# Prompt-ENVs aus /data/config/prompts laden
+PROMPTS_DIR = os.getenv("PROMPTS_DIR", "/data/config/prompts")
+if os.path.isdir(PROMPTS_DIR):
+    for fname in ("is_ticket_helpfull.env", "summarize_ticket.env"):
+        fpath = os.path.join(PROMPTS_DIR, fname)
+        if os.path.isfile(fpath):
+            load_dotenv(fpath, override=True)
 
 # ---- KONFIG AUS .env ----
 QDRANT_URL = os.getenv("QDRANT_URL")
@@ -43,6 +34,7 @@ COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 ZAMMAD_URL = os.getenv("ZAMMAD_URL")
 ZAMMAD_TOKEN = os.getenv("ZAMMAD_TOKEN")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")
+HUGGINGFACE_CACHE_DIR = os.getenv("HUGGINGFACE_CACHE_DIR", "/data/cache")
 
 # Mindest-Datum aus ENV (UTC) oder Default
 MIN_CLOSED_DAYS = int(os.getenv("MIN_CLOSED_DAYS", "14"))
@@ -55,7 +47,7 @@ except Exception:
 MAX_ATTEMPTS = 1
 
 client = QdrantClient(QDRANT_URL, api_key=QDRANT_API_KEY)
-model = SentenceTransformer(EMBED_MODEL, device='cpu')
+model = SentenceTransformer(EMBED_MODEL, device='cpu', cache_folder=HUGGINGFACE_CACHE_DIR)
 
 if not client.collection_exists(collection_name=COLLECTION_NAME):
     print(f"📦 Erstelle Collection '{COLLECTION_NAME}' ...")
@@ -367,16 +359,38 @@ def build_ticket_for_llm(ticket):
         "full_text": text
     }
 
+def _append_activity(entry: dict):
+    """Appendet eine Aktivität in /data/log/activities.jsonl (JSONL)."""
+    try:
+        os.makedirs("/data/log", exist_ok=True)
+        with open("/data/log/activities.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"⚠️ Konnte Aktivität nicht schreiben: {e}")
+
 def process_and_store_ticket(ticket, point_id):
     print(f"\n--- [{point_id}] Bearbeite Ticket ID: {ticket.get('id', point_id)} ---")
-    
+    ticket_id_dbg = ticket.get('id', point_id)
+
     if not is_ticket_helpful(ticket):
-        print(f"⏩ Ticket {ticket.get('id', point_id)} nicht relevant – wird übersprungen.")
+        print(f"⏩ Ticket {ticket_id_dbg} nicht relevant – wird übersprungen.")
+        _append_activity({
+            "kind": "ingest_skip",
+            "reason": "not_helpful",
+            "ticket_id": ticket_id_dbg,
+            "processed_at": time.time()
+        })
         return
 
     fields = summarize_ticket_to_json(ticket)
     if not fields or not fields.get("lösung"):
-        print(f"⏩ Ticket {ticket.get('id', point_id)} hat keine Lösung – wird übersprungen.")
+        print(f"⏩ Ticket {ticket_id_dbg} hat keine Lösung – wird übersprungen.")
+        _append_activity({
+            "kind": "ingest_skip",
+            "reason": "no_solution",
+            "ticket_id": ticket_id_dbg,
+            "processed_at": time.time()
+        })
         return
     # Optionales Warn-Logging für None-Felder
     for _key in ["kurzbeschreibung", "beschreibung", "lösung", "system", "kategorie", "tags"]:
@@ -448,6 +462,15 @@ def process_and_store_ticket(ticket, point_id):
         ]
     )
     print(f"✅ Ticket {ticket.get('id', point_id)} gespeichert.")
+    try:
+        _append_activity({
+            "kind": "ingest",
+            "ticket_id": ticket.get('id', point_id),
+            "title": safe_str(ticket.get('full_text', '')[:120]).replace("\n", " "),
+            "processed_at": time.time()
+        })
+    except Exception as e:
+        print(f"⚠️ Aktivitäts-Log fehlgeschlagen: {e}")
 
 # -- NEU: IDs der bereits gespeicherten Tickets laden --
 def get_existing_ticket_ids():
@@ -611,7 +634,16 @@ def fetch_and_process_zammad_tickets():
         page += 1
 
     print(f"\n🏁 Verarbeitung beendet: {total} Tickets bearbeitet & gespeichert.")
+    try:
+        _append_activity({
+            "kind": "ingest_summary",
+            "count": total,
+            "processed_at": time.time()
+        })
+    except Exception as e:
+        print(f"⚠️ Zusammenfassungs-Log fehlgeschlagen: {e}")
 
 
 # ---- Haupt-Workflow ----
-fetch_and_process_zammad_tickets()
+if __name__ == "__main__":
+    fetch_and_process_zammad_tickets()

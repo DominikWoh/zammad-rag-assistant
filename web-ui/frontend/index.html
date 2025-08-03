@@ -100,6 +100,25 @@
             </div>
         </div>
 
+        <!-- Batch-Import: Tickets bearbeiten (Zammad -> Qdrant) -->
+        <div class="controls" style="margin-top:16px;">
+            <div class="controls-header">
+                <h2>Tickets bearbeiten (Batch-Import)</h2>
+                <div id="ingest-status" class="service-status-indicator">
+                    <div class="status-dot"></div>
+                    <span class="status-text">Unbekannt</span>
+                </div>
+            </div>
+            <div class="control-buttons">
+                <button class="btn btn-start" id="ingest-start-btn">
+                    Jetzt starten
+                </button>
+            </div>
+            <div id="ingest-lastmsg" class="status-details" style="margin-top:8px;color:#a1a5ad;">
+                Status wird geladen...
+            </div>
+        </div>
+
         <div style="text-align: center; margin-top: 30px; color: rgba(255,255,255,0.7);">
             <small id="lastUpdate">Letztes Update: Lädt...</small>
         </div>

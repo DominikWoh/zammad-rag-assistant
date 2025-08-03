@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zammad-rag-ui:latest
+    container_name: zammad-rag-ui
+    ports:
+      - "5000:5000"
+    environment:
+      # Pfade für Konfiguration und Caches (extern gemounted)
+      ENV_FILE: /data/config/ticket_ingest.env
+      PROMPTS_DIR: /data/config/prompts
+      HUGGINGFACE_CACHE_DIR: /data/cache
+
+      # App/Server Konfiguration
+      WEBUI_HOST: 0.0.0.0
+      WEBUI_PORT: 5000
+
+      # Standard-Embedding-Modell (build-time preload erfolgt im Dockerfile)
+      EMBED_MODEL: intfloat/multilingual-e5-base
+
+      # Upstream-Services werden über /data/config/ticket_ingest.env konfiguriert
+      # Keine Default-Überschreibung hier, damit Host-Config greift
+    volumes:
+      - ./config:/data/config
+      - ./cache:/data/cache
+    restart: unless-stopped

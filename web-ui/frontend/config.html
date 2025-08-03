@@ -35,7 +35,7 @@
                 <h2>Ollama Einstellungen</h2>
                 <label for="ollama-url">Ollama Server URL:</label>
                 <input type="url" id="ollama-url" placeholder="http://192.168.0.120:11434" required>
-
+ 
                 <label for="model-selection">Aktives Modell auswählen:</label>
                 <div class="model-management">
                     <select id="model-selection">
@@ -44,37 +44,41 @@
                     <button type="button" id="refresh-models-btn" class="btn">Aktualisieren</button>
                     <button type="button" id="delete-model-btn" class="btn btn-danger" disabled>Löschen</button>
                 </div>
-
+ 
                 <label for="new-model-input">Neues Modell herunterladen:</label>
                 <div class="model-add">
                     <input type="text" id="new-model-input" placeholder="z.B. llama3:8b">
                     <button type="button" id="pull-model-btn" class="btn">Herunterladen</button>
                 </div>
-
+ 
                 <div id="model-result" style="display: none;"></div>
             </section>
-
+ 
             <!-- Qdrant Einstellungen -->
             <section>
                 <h2>Qdrant Einstellungen</h2>
+                <label for="qdrant-url">Qdrant URL:</label>
+                <input type="url" id="qdrant-url" placeholder="http://host.docker.internal:6333" required>
+ 
                 <label for="qdrant-collection">Collection Name:</label>
                 <input type="text" id="qdrant-collection" placeholder="zammad-collection" required>
-
+ 
                 <label for="qdrant-api-key">Qdrant API Key:</label>
                 <div class="input-group">
                     <input type="text" id="qdrant-api-key" placeholder="Ihr Qdrant API Key" required>
                     <button type="button" id="copy-qdrant-key-btn" class="copy-btn" title="In Zwischenablage kopieren">📋</button>
                 </div>
-
+ 
                 <button type="button" id="test-qdrant-btn" class="btn">Qdrant Verbindung testen</button>
                 <div id="qdrant-test-result"></div>
             </section>
+
 
             <!-- Ticket Filter -->
             <section>
                 <h2>Ticket Filter</h2>
                 <label for="min-closed-days">Mindest-Tage seit Ticket-Schließung:</label>
-                <input type="number" id="min-closed-days" placeholder="14" min="1" required>
+                <input type="number" id="min-closed-days" placeholder="14" min="0" required>
 
                 <label for="min-date">Frühestes Ticket-Datum:</label>
                 <input type="date" id="min-date" required>
@@ -97,11 +101,247 @@
                 <p style="margin-top: 8px; color: #666;">Hinweis: Nach dem Speichern ist ein manueller Neustart des Dienstes erforderlich.</p>
             </section>
 
+            <!-- Batch-Import Zeitplan -->
+            <section>
+                <h2>Batch-Import Zeitplan (Tickets bearbeiten)</h2>
+                <p style="margin-bottom:8px;color:#a1a5ad;">
+                    Legen Sie fest, wann der Batch-Importer automatisch starten soll.
+                    Unterstützt werden z.&nbsp;B.: @hourly, @daily 23:00, 0 * * * *, 0 23 * * *
+                </p>
+                <label for="ingest-schedule">Zeitplan:</label>
+                <input type="text" id="ingest-schedule" placeholder="@daily 23:00">
+                <div style="display:flex; gap:8px; margin-bottom:12px;">
+                    <button type="button" id="load-schedule-btn" class="btn">Plan laden</button>
+                    <button type="button" id="save-schedule-btn" class="btn">Plan speichern</button>
+                    <button type="button" id="test-ingest-btn" class="btn">Jetzt starten (Test)</button>
+                </div>
+                <div id="schedule-result"></div>
+            </section>
+
             <button type="submit" class="btn">Speichern</button>
             <div id="save-result"></div>
         </form>
     </div>
-
+ 
     <script src="/static/config.js"></script>
+    <script>
+        // Ergänzung: Qdrant-URL in der UI verwalten (laden/speichern/testen)
+
+        async function loadConfig() {
+            try {
+                const resp = await fetch('/api/config', { credentials: 'include' });
+                if (!resp.ok) return;
+                const cfg = await resp.json();
+
+                // Zammad
+                if (cfg.ZAMMAD_URL) document.getElementById('zammad-url').value = cfg.ZAMMAD_URL || '';
+                if (cfg.ZAMMAD_TOKEN) document.getElementById('zammad-token').value = cfg.ZAMMAD_TOKEN || '';
+
+                // Ollama
+                if (cfg.OLLAMA_URL) document.getElementById('ollama-url').value = cfg.OLLAMA_URL || '';
+
+                // Qdrant
+                if (cfg.QDRANT_URL) document.getElementById('qdrant-url').value = cfg.QDRANT_URL || '';
+                if (cfg.COLLECTION_NAME) document.getElementById('qdrant-collection').value = cfg.COLLECTION_NAME || '';
+                if (cfg.QDRANT_API_KEY) document.getElementById('qdrant-api-key').value = cfg.QDRANT_API_KEY || '';
+
+                // Flags
+                document.getElementById('enable-askki').checked = (String(cfg.ENABLE_ASKKI || 'false').toLowerCase() === 'true');
+                document.getElementById('enable-rag-note').checked = (String(cfg.ENABLE_RAG_NOTE || 'true').toLowerCase() === 'true');
+                
+                // Ticket-Filter (optional, falls vorhanden)
+                if (cfg.MIN_CLOSED_DAYS !== undefined && cfg.MIN_CLOSED_DAYS !== null) document.getElementById('min-closed-days').value = String(cfg.MIN_CLOSED_DAYS);
+                if (cfg.MIN_TICKET_DATE) document.getElementById('min-date').value = (cfg.MIN_TICKET_DATE || '').substring(0, 10);
+            } catch (e) {
+                console.error('Konfig laden fehlgeschlagen', e);
+            }
+        }
+
+        async function saveConfig(evt) {
+            if (evt) evt.preventDefault();
+            const payload = {
+                // Zammad
+                ZAMMAD_URL: document.getElementById('zammad-url').value.trim(),
+                ZAMMAD_TOKEN: document.getElementById('zammad-token').value.trim(),
+
+                // Ollama
+                OLLAMA_URL: document.getElementById('ollama-url').value.trim(),
+
+                // Qdrant – NEU: URL wird mitgespeichert
+                QDRANT_URL: document.getElementById('qdrant-url').value.trim(),
+                COLLECTION_NAME: document.getElementById('qdrant-collection').value.trim(),
+                QDRANT_API_KEY: document.getElementById('qdrant-api-key').value.trim(),
+
+                // Flags
+                ENABLE_ASKKI: document.getElementById('enable-askki').checked,
+                ENABLE_RAG_NOTE: document.getElementById('enable-rag-note').checked,
+
+                // Filter (optional falls vorhanden)
+                MIN_CLOSED_DAYS: document.getElementById('min-closed-days') ? document.getElementById('min-closed-days').value : undefined,
+                MIN_TICKET_DATE: document.getElementById('min-date') ? document.getElementById('min-date').value : undefined,
+            };
+
+            try {
+                const resp = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                const resEl = document.getElementById('save-result');
+                if (resp.ok) {
+                    resEl.textContent = 'Konfiguration gespeichert.';
+                    resEl.style.color = '#4caf50';
+                } else {
+                    const err = await resp.json().catch(()=>({}));
+                    resEl.textContent = 'Speichern fehlgeschlagen: ' + (err.error || resp.status);
+                    resEl.style.color = '#f44336';
+                }
+            } catch (e) {
+                const resEl = document.getElementById('save-result');
+                resEl.textContent = 'Netzwerkfehler beim Speichern.';
+                resEl.style.color = '#f44336';
+            }
+        }
+
+        async function testQdrant() {
+            const url = document.getElementById('qdrant-url').value.trim();
+            const collection = document.getElementById('qdrant-collection').value.trim();
+            const api_key = document.getElementById('qdrant-api-key').value.trim();
+            const out = document.getElementById('qdrant-test-result');
+            out.textContent = 'Teste Verbindung...';
+            out.style.color = '';
+
+            try {
+                const resp = await fetch('/api/qdrant/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ url, collection, api_key, create_if_missing: true })
+                });
+                const data = await resp.json().catch(()=>({}));
+                if (resp.ok && data.success) {
+                    const parts = ['OK: ' + (data.url || url)];
+                    if (data.collection) parts.push(`Collection "${data.collection}" Punkte: ${data.points_count ?? 'n/a'}`);
+                    if (data.created) parts.push('(Collection wurde angelegt)');
+                    out.textContent = parts.join(' — ');
+                    out.style.color = '#4caf50';
+                } else {
+                    out.textContent = '❌ Fehler: ' + (data.error || ('HTTP ' + resp.status));
+                    out.style.color = '#f44336';
+                }
+            } catch (e) {
+                out.textContent = '❌ Netzwerkfehler: ' + e;
+                out.style.color = '#f44336';
+            }
+        }
+
+        // Events
+        document.getElementById('config-form').addEventListener('submit', saveConfig);
+        document.getElementById('test-qdrant-btn').addEventListener('click', testQdrant);
+
+        // Batch-Import Plan laden/speichern
+        const scheduleInput = document.getElementById('ingest-schedule');
+        const scheduleResult = document.getElementById('schedule-result');
+
+        async function loadSchedule() {
+            try {
+                const res = await fetch('/api/ingest/schedule', {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (res.status === 401) {
+                    // lokale handleApiError gibt es hier nicht – bei 401 auf Login umleiten
+                    window.location.href = '/login';
+                    return;
+                }
+                const data = await res.json();
+                scheduleInput.value = (data && data.schedule) ? data.schedule : '';
+                scheduleResult.textContent = 'Plan geladen.';
+                scheduleResult.style.color = '#4caf50';
+            } catch (e) {
+                console.error('Load schedule error:', e);
+                scheduleResult.textContent = 'Fehler beim Laden des Plans.';
+                scheduleResult.style.color = '#f44336';
+            }
+        }
+
+        async function saveSchedule() {
+            try {
+                const body = { schedule: scheduleInput.value.trim() };
+                const res = await fetch('/api/ingest/schedule', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                if (res.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                let data = {};
+                try { data = await res.json(); } catch {}
+                if (res.ok && (data.success === true || data.schedule !== undefined)) {
+                    scheduleResult.textContent = 'Plan gespeichert.';
+                    scheduleResult.style.color = '#4caf50';
+                } else {
+                    scheduleResult.textContent = 'Speichern fehlgeschlagen.';
+                    scheduleResult.style.color = '#f44336';
+                }
+            } catch (e) {
+                console.error('Save schedule error:', e);
+                scheduleResult.textContent = 'Netzwerkfehler beim Speichern.';
+                scheduleResult.style.color = '#f44336';
+            }
+        }
+
+        async function testIngestNow() {
+            const btn = document.getElementById('test-ingest-btn');
+            const original = btn.textContent;
+            try {
+                btn.disabled = true;
+                btn.textContent = '⏳ Starte...';
+                const res = await fetch('/api/ingest/start', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (res.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                let data = {};
+                try { data = await res.json(); } catch {}
+                if (res.ok && (data.success || data.status === 'started' || data.status === 'already_running')) {
+                    scheduleResult.textContent = data.status === 'already_running'
+                        ? 'Batch-Import läuft bereits.'
+                        : 'Batch-Import wurde gestartet.';
+                    scheduleResult.style.color = '#4caf50';
+                } else {
+                    scheduleResult.textContent = 'Start fehlgeschlagen.';
+                    scheduleResult.style.color = '#f44336';
+                }
+            } catch (e) {
+                console.error('Start ingest error:', e);
+                scheduleResult.textContent = 'Netzwerkfehler beim Start.';
+                scheduleResult.style.color = '#f44336';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        }
+
+        document.getElementById('load-schedule-btn').addEventListener('click', loadSchedule);
+        document.getElementById('save-schedule-btn').addEventListener('click', saveSchedule);
+        document.getElementById('test-ingest-btn').addEventListener('click', testIngestNow);
+
+        // Initial laden
+        loadConfig();
+        loadSchedule();
+    </script>
 </body>
 </html>

@@ -6,3 +6,5 @@ qdrant-client
 psutil
 sentence-transformers
 beautifulsoup4
+# Für Produktionsserver optional (kann für künftige Optimierung genutzt werden)
+# gunicorn
