@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einstellungen - Zammad Qdrant Interface</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js für interaktive Komponenten -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="./lang.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* Custom animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Prompt textarea styling */
+        .prompt-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    <div class="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <!-- Header -->
+        <header class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div class="flex items-center">
+                        <a href="./index.html" class="flex items-center hover:text-blue-600 transition-colors">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="arrow-left" class="w-6 h-6 text-gray-600 mr-2"></i>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i data-lucide="settings" class="w-8 h-8 text-gray-600"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h1 class="text-2xl font-bold text-gray-900">Zammad Qdrant Interface</h1>
+                                    <p class="text-sm text-gray-600">Einstellungen</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Language Dropdown -->
+                        <div class="flex items-center p-2 rounded-lg bg-gray-100">
+                            <i data-lucide="globe" class="w-5 h-5 mr-2"></i>
+                            <select id="ui-language-select" class="bg-transparent text-sm outline-none">
+                                <option value="DE" selected>DE</option>
+                                <option value="EN">EN</option>
+                            </select>
+                        </div>
+                        <!-- AI Settings Link -->
+                        <a href="./ai-settings.html" class="p-2 rounded-lg bg-purple-100 hover:bg-purple-200 transition-colors">
+                            <i data-lucide="brain" class="w-5 h-5 text-purple-600"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- System Settings -->
+            <div class="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+                <div class="flex items-center mb-8">
+                    <div class="p-3 rounded-full bg-blue-100">
+                        <i data-lucide="settings" class="w-8 h-8 text-blue-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="text-2xl font-semibold text-gray-900">System-Einstellungen</h2>
+                        <p class="text-sm text-gray-600">Zammad und Qdrant Konfiguration</p>
+                    </div>
+                </div>
+
+                <!-- Zammad Konfiguration -->
+                <div class="border-b border-gray-200 pb-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                        <i data-lucide="server" class="w-5 h-5 mr-2 text-blue-600"></i>
+                        Zammad Konfiguration
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Zammad URL -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Zammad API URL
+                            </label>
+                            <input type="url" 
+                                   id="zammad-url" 
+                                   placeholder="https://your-zammad-instance.com"
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <p class="text-xs text-gray-500 mt-1">Vollständige URL zur Zammad-Instanz</p>
+                        </div>
+
+                        <!-- Zammad Token -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Zammad API Token
+                            </label>
+                            <input type="password" 
+                                   id="zammad-token" 
+                                   placeholder="Ihr API-Token"
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <p class="text-xs text-gray-500 mt-1">Token aus Zammad Admin-Interface</p>
+                        </div>
+                    </div>
+
+                    <!-- Zammad Connection Status -->
+                    <div class="mt-6">
+                        <h4 class="text-sm font-medium text-gray-700 mb-3">Verbindungsstatus</h4>
+                        <div class="flex items-center p-3 bg-gray-50 rounded-lg" data-service="zammad">
+                            <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                            <span class="text-sm text-green-600">Verbunden</span>
+                            <span class="text-xs text-gray-500 ml-2">(Demo-Modus)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Qdrant Konfiguration -->
+                <div class="border-b border-gray-200 pb-8 mt-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                        <i data-lucide="database" class="w-5 h-5 mr-2 text-green-600"></i>
+                        Qdrant Konfiguration
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Qdrant URL -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Qdrant Server URL
+                            </label>
+                            <input type="url" 
+                                   id="qdrant-url" 
+                                   value="http://localhost:6333"
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <p class="text-xs text-gray-500 mt-1">Standard: http://localhost:6333</p>
+                        </div>
+
+                        <!-- Qdrant Token -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Qdrant API Token
+                            </label>
+                            <input type="password" 
+                                   id="qdrant-token" 
+                                   placeholder="API-Token (optional)"
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <p class="text-xs text-gray-500 mt-1">Nur erforderlich bei Remote-Instanzen</p>
+                        </div>
+                    </div>
+
+                    <!-- Qdrant Connection Status -->
+                    <div class="mt-6">
+                        <h4 class="text-sm font-medium text-gray-700 mb-3">Verbindungsstatus</h4>
+                        <div class="flex items-center p-3 bg-gray-50 rounded-lg" data-service="qdrant">
+                            <div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
+                            <span class="text-sm text-green-600">Verbunden</span>
+                            <span class="text-xs text-gray-500 ml-2">(Demo-Modus)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System-Konfiguration -->
+                <div class="mt-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                        <i data-lucide="cpu" class="w-5 h-5 mr-2 text-gray-600"></i>
+                        System-Konfiguration
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- BM25 Cache -->
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="bm25-cache" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="ml-2 text-sm font-medium text-gray-700">BM25 Cache verwenden</span>
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Beschleunigt Wiederholungsindizierungen
+                            </p>
+                        </div>
+
+                        <!-- Default Values -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Standard Intervall (Tage)
+                            </label>
+                            <input type="number" id="default-interval" min="1" max="365" value="14" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <p class="text-xs text-gray-500 mt-1">Standard-Intervall für automatische Transfers</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance Actions -->
+            <div class="mt-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center mb-6">
+                        <div class="p-3 rounded-full bg-orange-100">
+                            <i data-lucide="wrench" class="w-6 h-6 text-orange-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h2 class="text-xl font-semibold text-gray-900">Wartung & Administration</h2>
+                            <p class="text-sm text-gray-600">System-Wartung und Datenverwaltung</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <!-- Clear BM25 Cache -->
+                        <div class="flex-1 border border-red-200 rounded-lg p-4 flex flex-col">
+                            <div class="flex items-center mb-3">
+                                <i data-lucide="database" class="w-5 h-5 text-red-600 mr-2"></i>
+                                <h3 class="text-sm font-medium text-gray-900">BM25 Cache löschen</h3>
+                            </div>
+                            <p class="text-xs text-gray-600 mb-4 flex-1">
+                                Entfernt alle BM25-Cache-Dateien und zwingt zur Neuberechnung
+                            </p>
+                            <button id="clear-bm25-btn" class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors text-sm mt-auto">
+                                <i data-lucide="trash-2" class="w-4 h-4 inline mr-2"></i>
+                                BM25 Cache löschen
+                            </button>
+                        </div>
+
+                        <!-- Reset Qdrant Collection -->
+                        <div class="flex-1 border border-orange-200 rounded-lg p-4 flex flex-col">
+                            <div class="flex items-center mb-3">
+                                <i data-lucide="rotate-ccw" class="w-5 h-5 text-orange-600 mr-2"></i>
+                                <h3 class="text-sm font-medium text-gray-900">Qdrant Collection zurücksetzen</h3>
+                            </div>
+                            <p class="text-xs text-gray-600 mb-4 flex-1">
+                                Löscht alle Daten und legt eine neue Collection an
+                            </p>
+                            <button id="reset-collection-btn" class="w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors text-sm mt-auto">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4 inline mr-2"></i>
+                                Collection zurücksetzen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Settings -->
+            <div class="mt-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-900">Einstellungen speichern</h2>
+                            <p class="text-sm text-gray-600">Alle Konfigurationen persistent speichern</p>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button id="save-settings" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                                <i data-lucide="save" class="w-4 h-4 inline mr-2"></i>
+                                Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Demo JavaScript for Settings Page
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeDemoSettings();
+        });
+
+        function initializeDemoSettings() {
+            lucide.createIcons();
+            initLanguageDropdown();
+            loadDemoSettings();
+        }
+
+        function loadDemoSettings() {
+            // Set demo values
+            document.getElementById('zammad-url').value = 'https://demo.zammad.com';
+            document.getElementById('zammad-token').value = 'demo-token-12345';
+            document.getElementById('qdrant-url').value = 'http://localhost:6333';
+            document.getElementById('qdrant-token').value = '';
+            document.getElementById('bm25-cache').checked = true;
+            document.getElementById('default-interval').value = 14;
+        }
+
+        async function saveDemoSettings() {
+            const saveButton = document.getElementById('save-settings');
+            const originalText = saveButton.innerHTML;
+            
+            saveButton.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-2 animate-spin"></i>Speichere...';
+            saveButton.disabled = true;
+            
+            // Simulate save process
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Show success message
+            const successAlert = document.createElement('div');
+            successAlert.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50';
+            successAlert.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4 inline mr-2"></i>Einstellungen erfolgreich gespeichert!';
+            document.body.appendChild(successAlert);
+            
+            lucide.createIcons();
+            
+            // Remove alert after 3 seconds
+            setTimeout(() => {
+                successAlert.remove();
+            }, 3000);
+            
+            // Restore button
+            saveButton.innerHTML = originalText;
+            saveButton.disabled = false;
+            lucide.createIcons();
+        }
+
+        async function clearBM25Cache(buttonElement) {
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-2 animate-spin"></i>Lösche...';
+            buttonElement.disabled = true;
+            
+            // Simulate cache clearing
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Show success message
+            const successAlert = document.createElement('div');
+            successAlert.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50';
+            successAlert.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4 inline mr-2"></i>BM25 Cache erfolgreich gelöscht!';
+            document.body.appendChild(successAlert);
+            
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                successAlert.remove();
+            }, 3000);
+            
+            buttonElement.innerHTML = originalText;
+            buttonElement.disabled = false;
+            lucide.createIcons();
+        }
+
+        async function resetCollection(buttonElement) {
+            if (!confirm('WARNUNG: Diese Aktion löscht ALLE Daten in der Qdrant Collection!\n\nMöchten Sie wirklich fortfahren?')) {
+                return;
+            }
+            
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-2 animate-spin"></i>Zurücksetzen...';
+            buttonElement.disabled = true;
+            
+            // Simulate collection reset
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            // Show success message
+            const successAlert = document.createElement('div');
+            successAlert.className = 'fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50';
+            successAlert.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4 inline mr-2"></i>Qdrant Collection erfolgreich zurückgesetzt!';
+            document.body.appendChild(successAlert);
+            
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                successAlert.remove();
+            }, 5000);
+            
+            buttonElement.innerHTML = originalText;
+            buttonElement.disabled = false;
+            lucide.createIcons();
+        }
+
+        // Event Listeners
+        document.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const buttonId = button.id;
+            
+            if (buttonId === 'save-settings') {
+                e.preventDefault();
+                saveDemoSettings();
+            } else if (buttonId === 'clear-bm25-btn') {
+                e.preventDefault();
+                clearBM25Cache(button);
+            } else if (buttonId === 'reset-collection-btn') {
+                e.preventDefault();
+                resetCollection(button);
+            }
+        });
+    </script>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.initLanguageDropdown) { window.initLanguageDropdown(); }
+      });
+    </script>
+</body>
+</html>

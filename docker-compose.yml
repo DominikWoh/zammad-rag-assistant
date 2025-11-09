@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  zammad-rag-assistant:
+    image: duftertyp/zammad-rag-assistant:latest
+    ports:
+      - "8000:8000"
+      - "8083:8083"

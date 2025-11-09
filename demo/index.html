@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zammad Qdrant Interface</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX für dynamische Updates -->
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    
+    <!-- Alpine.js für interaktive Komponenten -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Chart.js für Visualisierungen -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="./lang.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* Custom animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    <div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <!-- Header -->
+        <header class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i data-lucide="database" class="w-8 h-8 text-blue-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h1 class="text-2xl font-bold text-gray-900">Zammad Qdrant Interface</h1>
+                            <p class="text-sm text-gray-600">Ticket Transfer & Hybrid Search</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Language Dropdown -->
+                        <div class="flex items-center p-2 rounded-lg bg-gray-100">
+                            <i data-lucide="globe" class="w-5 h-5 mr-2"></i>
+                            <select id="ui-language-select" class="bg-transparent text-sm outline-none">
+                                <option value="DE" selected>DE</option>
+                                <option value="EN">EN</option>
+                            </select>
+                        </div>
+                        <!-- Settings Link -->
+                        <a href="./settings.html" class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                            <i data-lucide="settings" class="w-5 h-5"></i>
+                        </a>
+                        
+                        <!-- Theme Toggle -->
+                        <button class="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors">
+                            <i data-lucide="moon" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Dashboard Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Transfer Status Card -->
+                <div id="transfer-status-card" class="bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100">
+                            <i id="transfer-status-icon" data-lucide="upload" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Transfer Status</p>
+                            <p class="text-2xl font-bold text-gray-900">Bereit</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="mt-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="transfer-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                        <p id="transfer-status-text" class="text-xs text-gray-500 mt-1">Bereit für Transfer</p>
+                    </div>
+                </div>
+
+                <!-- BM25 Stats Card -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-100">
+                            <i data-lucide="search" class="w-6 h-6 text-purple-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">BM25 Vocabulary</p>
+                            <p class="text-2xl font-bold text-gray-900" id="bm25-vocabulary">1,247</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Qdrant Collections Card -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100">
+                            <i data-lucide="layers" class="w-6 h-6 text-green-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Collections</p>
+                            <p class="text-2xl font-bold text-gray-900" id="qdrant-collections">2</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Performance Card -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-orange-100">
+                            <i data-lucide="zap" class="w-6 h-6 text-orange-600"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Search Performance</p>
+                            <p class="text-2xl font-bold text-gray-900">
+                                <span class="text-sm text-gray-500">Ready</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Interface -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Transfer Control Panel -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center mb-6">
+                        <i data-lucide="settings" class="w-6 h-6 text-gray-600 mr-3"></i>
+                        <h2 class="text-xl font-semibold text-gray-900">Transfer Konfiguration</h2>
+                    </div>
+
+                    <form class="space-y-4">
+                        <!-- BM25 Mode -->
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="bm25-cache-checkbox" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="ml-2 text-sm font-medium text-gray-700">BM25 Cache verwenden</span>
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Aktiviert schnellen Modus mit vorhandenem BM25-Index
+                            </p>
+                        </div>
+
+                        <!-- Minimum Age -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Mindestalter für geschlossene Tickets (Tage)
+                            </label>
+                            <input type="number" id="min-age-days" min="0" max="365" value="14" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        </div>
+
+                        <!-- Index Date -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Tickets indexieren ab Datum
+                            </label>
+                            <input type="date" id="start-date" value="2018-01-01" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        </div>
+
+                        <!-- Transfer Button -->
+                        <button type="button" id="transfer-button" data-action="start" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                            <i data-lucide="play" class="w-4 h-4 inline mr-2"></i>
+                            <span>Transfer starten</span>
+                        </button>
+                    </form>
+
+                    <!-- Live Log -->
+                    <div class="mt-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-3">Live Log</h3>
+                        <div id="live-log" class="bg-gray-50 rounded-lg p-4 h-48 overflow-y-auto text-sm font-mono">
+                            <div class="text-gray-600">
+                                [15:54:12] INFO: Demo-System bereit für Transfer
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Interface -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center mb-6">
+                        <i data-lucide="search" class="w-6 h-6 text-gray-600 mr-3"></i>
+                        <h2 class="text-xl font-semibold text-gray-900">Hybrid Search</h2>
+                    </div>
+
+                    <!-- Search Form -->
+                    <form class="space-y-4">
+                        <div class="relative">
+                            <input type="text" id="search-input" placeholder="Suchanfrage eingeben..." class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">
+                                    Top K Chunks
+                                </label>
+                                <input id="top-k-chunks" type="number" min="10" max="500" value="100" class="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">
+                                    Top Tickets
+                                </label>
+                                <input id="top-tickets" type="number" min="5" max="50" value="5" class="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            </div>
+                        </div>
+
+                        <button id="search-button" type="button" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors">
+                            <i data-lucide="zap" class="w-4 h-4 inline mr-2"></i>
+                            Hybrid Search ausführen
+                        </button>
+                    </form>
+
+                    <!-- Search Results -->
+                    <div class="mt-6">
+                        <h3 class="text-sm font-medium text-gray-700 mb-3">
+                            Suchergebnisse (<span id="search-results-count">0</span>)
+                        </h3>
+                        <div id="search-results" class="space-y-4 max-h-96 overflow-y-auto">
+                            <div class="text-center text-gray-500 py-8">
+                                Keine Suchergebnisse
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zeitgesteuerte Transfers -->
+            <div class="mt-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <i data-lucide="clock" class="w-6 h-6 text-gray-600 mr-3"></i>
+                            <h2 class="text-xl font-semibold text-gray-900">Zeitgesteuerte Transfers</h2>
+                        </div>
+                        <div class="flex space-x-2">
+                            <span id="scheduler-status" class="text-sm px-2 py-1 rounded bg-red-100 text-red-600">● Gestoppt</span>
+                            <button id="start-scheduler-btn" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                                <i data-lucide="play" class="w-3 h-3 inline mr-1"></i>Resume
+                            </button>
+                            <button id="stop-scheduler-btn" class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
+                                <i data-lucide="square" class="w-3 h-3 inline mr-1"></i>Stop
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Neuen Zeitplan erstellen -->
+                    <form id="schedule-form" class="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                        <h3 class="text-sm font-medium text-gray-700 mb-3">Neuen Zeitplan erstellen</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                                <input type="text" id="schedule-name" placeholder="z.B. Täglicher Transfer" class="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Intervall</label>
+                                <select id="schedule-interval" class="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                    <option value="hourly">Stündlich</option>
+                                    <option value="daily" selected>Täglich</option>
+                                    <option value="weekly">Wöchentlich</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Uhrzeit (HH:MM)</label>
+                                <input type="time" id="schedule-time" value="02:00" class="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            </div>
+                            <div id="weekly-days" style="display: none;">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Wochentage</label>
+                                <div class="flex flex-wrap gap-2">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="0" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">Mo</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="1" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">Di</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="2" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">Mi</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="3" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">Do</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="4" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">Fr</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="5" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">Sa</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="6" class="schedule-day rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                        <span class="ml-1 text-xs">So</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="schedule-bm25" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                                <span class="ml-2 text-xs text-gray-700">BM25 Cache verwenden</span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">
+                            <i data-lucide="plus" class="w-3 h-3 inline mr-1"></i>Zeitplan erstellen
+                        </button>
+                    </form>
+
+                    <!-- Geplante Transfers Liste -->
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-700 mb-3">Aktive Zeitpläne</h3>
+                        <div id="schedules-list" class="space-y-3 max-h-64 overflow-y-auto">
+                            <div class="text-center text-gray-500 py-8 text-sm">
+                                Keine Zeitpläne erstellt
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BM25 Statistics Panel -->
+            <div class="mt-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <i data-lucide="bar-chart-3" class="w-6 h-6 text-gray-600 mr-3"></i>
+                            <h2 class="text-xl font-semibold text-gray-900">BM25 Statistiken</h2>
+                        </div>
+                        <button id="refresh-bm25" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 inline mr-2"></i>
+                            Aktualisieren
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-purple-800 mb-2">Vocabulary Size</h3>
+                            <p id="vocab-size" class="text-2xl font-bold text-purple-900">1,247</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-purple-800 mb-2">Documents</h3>
+                            <p id="docs-count" class="text-2xl font-bold text-purple-900">8,432</p>
+                        </div>
+                        <div class="bg-purple-50 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-purple-800 mb-2">Avg. Document Length</h3>
+                            <p id="avg-doc-length" class="text-2xl font-bold text-purple-900">156.3</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MCP Server Control Panel -->
+            <div class="mt-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100">
+                                <i data-lucide="server" class="w-6 h-6 text-green-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-xl font-semibold text-gray-900">MCP Server Status</h2>
+                                <p class="text-sm text-gray-600">
+                                    <span id="mcp-status-indicator" class="text-green-600">● Server läuft</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- MCP Server Control Buttons -->
+                        <div class="flex space-x-3">
+                            <button id="start-mcp-btn" class="bg-gray-400 text-white px-4 py-2 rounded-md cursor-not-allowed">
+                                <i data-lucide="play" class="w-4 h-4 inline mr-2"></i>
+                                Server starten
+                            </button>
+                            <button id="stop-mcp-btn" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+                                <i data-lucide="square" class="w-4 h-4 inline mr-2"></i>
+                                Server stoppen
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- MCP Server Information -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Server-Info</h3>
+                            <p class="text-xs text-gray-500 mt-1">
+                                URL: <span id="mcp-server-url">http://192.168.1.100:8083</span>
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Port: <span id="mcp-server-port">8083</span>
+                            </p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Lokale IP-Adresse</h3>
+                            <p class="text-xs text-gray-600">
+                                <span id="local-ip-address">192.168.1.100</span>
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                Vollständige URL: <span id="full-mcp-url">http://192.168.1.100:8083</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Demo JavaScript - simuliert alle Backend-Funktionen
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeDemo();
+        });
+
+        // Global variables
+        let transferRunning = false;
+        let mcpServerRunning = true;
+        let schedulerRunning = false;
+        let demoSchedules = [];
+
+        function initializeDemo() {
+            lucide.createIcons();
+            initLanguageDropdown();
+            loadInitialDemoData();
+            startDemoUpdates();
+        }
+
+        function loadInitialDemoData() {
+            // Setzt Demo-Werte
+            document.getElementById('bm25-vocabulary').textContent = '1,247';
+            document.getElementById('qdrant-collections').textContent = '2';
+            document.getElementById('vocab-size').textContent = '1,247';
+            document.getElementById('docs-count').textContent = '8,432';
+            document.getElementById('avg-doc-length').textContent = '156.3';
+            
+            // Initialisiert Formularwerte
+            document.getElementById('bm25-cache-checkbox').checked = true;
+            document.getElementById('min-age-days').value = 14;
+            document.getElementById('start-date').value = '2018-01-01';
+            
+            updateLiveLog('Demo-System erfolgreich initialisiert');
+        }
+
+        function startDemoUpdates() {
+            // Simuliert automatische Updates alle 3 Sekunden
+            setInterval(() => {
+                if (transferRunning) {
+                    const progress = Math.floor(Math.random() * 100);
+                    document.getElementById('transfer-progress-bar').style.width = progress + '%';
+                    updateLiveLog(`Transfer läuft... ${progress}% abgeschlossen`);
+                }
+            }, 3000);
+        }
+
+        function updateLiveLog(message) {
+            const logContainer = document.getElementById('live-log');
+            const timestamp = new Date().toLocaleTimeString('de-DE');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'text-gray-600';
+            logEntry.innerHTML = `[${timestamp}] INFO: ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Transfer Functions
+        function startTransfer() {
+            if (transferRunning) return;
+            
+            transferRunning = true;
+            document.getElementById('transfer-status-icon').setAttribute('data-lucide', 'loader');
+            document.getElementById('transfer-status-text').textContent = 'Transfer läuft...';
+            document.getElementById('transfer-progress-bar').style.width = '100%';
+            document.getElementById('transfer-progress-bar').classList.add('pulse-slow');
+            
+            const button = document.getElementById('transfer-button');
+            button.className = 'w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors';
+            button.setAttribute('data-action', 'stop');
+            const icon = button.querySelector('i');
+            const span = button.querySelector('span');
+            icon.setAttribute('data-lucide', 'square');
+            span.textContent = 'Transfer stoppen';
+            
+            updateLiveLog('Transfer gestartet');
+            lucide.createIcons();
+        }
+
+        function stopTransfer() {
+            if (!transferRunning) return;
+            
+            transferRunning = false;
+            document.getElementById('transfer-status-icon').setAttribute('data-lucide', 'check-circle');
+            document.getElementById('transfer-status-text').textContent = 'Bereit für Transfer';
+            document.getElementById('transfer-progress-bar').style.width = '0%';
+            document.getElementById('transfer-progress-bar').classList.remove('pulse-slow');
+            
+            const button = document.getElementById('transfer-button');
+            button.className = 'w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors';
+            button.setAttribute('data-action', 'start');
+            const icon = button.querySelector('i');
+            const span = button.querySelector('span');
+            icon.setAttribute('data-lucide', 'play');
+            span.textContent = 'Transfer starten';
+            
+            updateLiveLog('Transfer beendet');
+            lucide.createIcons();
+        }
+
+        // Search Functions
+        function performHybridSearch() {
+            const searchInput = document.getElementById('search-input');
+            const query = searchInput.value.trim();
+            
+            if (!query) {
+                alert('Bitte geben Sie eine Suchanfrage ein.');
+                return;
+            }
+
+            if (!mcpServerRunning) {
+                alert('MCP Server läuft nicht. Bitte starten Sie den Server zuerst.');
+                return;
+            }
+
+            updateLiveLog(`Suche gestartet: "${query}"`);
+            
+            // Simuliert Suchergebnisse mit Demo-Daten
+            setTimeout(() => {
+                const demoResults = generateDemoResults(query);
+                displaySearchResults(demoResults, query);
+                updateLiveLog(`${demoResults.length} Ergebnisse für "${query}" gefunden`);
+            }, 1500);
+        }
+
+        function generateDemoResults(query) {
+            const demoTickets = [
+                {
+                    ticket_id: '1234',
+                    text: `Dies ist ein Demo-Ticket bezüglich "${query}". Der Kunde hat ein Problem mit der Software gemeldet und benötigt Unterstützung. Das Support-Team hat bereits verschiedene Lösungsansätze ausprobiert.`,
+                    score: 0.925
+                },
+                {
+                    ticket_id: '5678',
+                    text: `Ein weiteres relevantes Ticket zu "${query}". Hier wird die Implementierung einer neuen Funktion besprochen. Die Entwickler arbeiten bereits an der Umsetzung.`,
+                    score: 0.889
+                },
+                {
+                    ticket_id: '9012',
+                    text: `Ticket über "${query}" mit detaillierter Problembeschreibung. Der Kunde berichtet von wiederkehrenden Fehlern in der Produktionsumgebung.`,
+                    score: 0.856
+                }
+            ];
+            
+            return demoTickets;
+        }
+
+        function displaySearchResults(results, query) {
+            const resultsContainer = document.getElementById('search-results');
+            const resultsCount = document.getElementById('search-results-count');
+            
+            resultsCount.textContent = results.length;
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        Keine Suchergebnisse für "${query}" gefunden
+                    </div>
+                `;
+                return;
+            }
+            
+            window.searchResults = results;
+            
+            resultsContainer.innerHTML = results.map((result, index) => {
+                const preview = result.text.length > 300 ? result.text.substring(0, 300) + '...' : result.text;
+                return `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                     onclick="showTicketPopupByIndex(${index})">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="text-lg font-semibold text-gray-900">
+                            Ticket #${result.ticket_id}
+                        </h4>
+                        <span class="text-sm font-medium text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                            Score: ${result.score.toFixed(3)}
+                        </span>
+                    </div>
+                    <p class="text-gray-700 text-sm leading-relaxed">
+                        ${preview}
+                    </p>
+                    <div class="mt-2 text-xs text-gray-500">
+                        ${result.text.length > 300 ? 'Klicken für vollständigen Text anzuzeigen' : ''}
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        function showTicketPopupByIndex(index) {
+            if (window.searchResults && window.searchResults[index]) {
+                const result = window.searchResults[index];
+                showTicketPopup(result.ticket_id, result.score, result.text);
+            }
+        }
+
+        function showTicketPopup(ticketId, score, fullText) {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    closePopup();
+                }
+            };
+            
+            overlay.innerHTML = `
+                <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+                    <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                        <h2 class="text-xl font-bold text-gray-900">
+                            Ticket #${ticketId}
+                        </h2>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm font-medium text-blue-600 bg-blue-100 px-3 py-1 rounded">
+                                Score: ${score.toFixed(3)}
+                            </span>
+                            <button onclick="closePopup()" class="text-gray-400 hover:text-gray-600">
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+                        <div class="prose max-w-none">
+                            <pre class="whitespace-pre-wrap text-sm text-gray-800 font-mono"></pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const preElement = overlay.querySelector('pre');
+            preElement.textContent = fullText;
+            
+            document.body.appendChild(overlay);
+            lucide.createIcons();
+            window.currentPopup = overlay;
+        }
+
+        function closePopup() {
+            if (window.currentPopup) {
+                document.body.removeChild(window.currentPopup);
+                window.currentPopup = null;
+            }
+        }
+
+        // MCP Server Functions
+        function startMCPServer() {
+            if (mcpServerRunning) {
+                alert('MCP Server läuft bereits!');
+                return;
+            }
+            
+            mcpServerRunning = true;
+            updateMCPStatus();
+            updateLiveLog('MCP Server gestartet');
+        }
+
+        function stopMCPServer() {
+            if (!mcpServerRunning) {
+                alert('MCP Server läuft nicht!');
+                return;
+            }
+            
+            mcpServerRunning = false;
+            updateMCPStatus();
+            updateLiveLog('MCP Server gestoppt');
+        }
+
+        function updateMCPStatus() {
+            const statusIndicator = document.getElementById('mcp-status-indicator');
+            const startButton = document.getElementById('start-mcp-btn');
+            const stopButton = document.getElementById('stop-mcp-btn');
+            
+            if (mcpServerRunning) {
+                statusIndicator.textContent = '● Server läuft';
+                statusIndicator.className = 'text-green-600';
+                startButton.disabled = true;
+                startButton.className = 'bg-gray-400 text-white px-4 py-2 rounded-md cursor-not-allowed';
+                stopButton.disabled = false;
+                stopButton.className = 'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors';
+            } else {
+                statusIndicator.textContent = '● Server gestoppt';
+                statusIndicator.className = 'text-red-600';
+                startButton.disabled = false;
+                startButton.className = 'bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors';
+                stopButton.disabled = true;
+                stopButton.className = 'bg-gray-400 text-white px-4 py-2 rounded-md cursor-not-allowed';
+            }
+            
+            lucide.createIcons();
+        }
+
+        // Scheduler Functions
+        function startScheduler() {
+            if (schedulerRunning) return;
+            
+            schedulerRunning = true;
+            const statusElement = document.getElementById('scheduler-status');
+            const startBtn = document.getElementById('start-scheduler-btn');
+            const stopBtn = document.getElementById('stop-scheduler-btn');
+            
+            statusElement.textContent = '● Läuft';
+            statusElement.className = 'text-sm px-2 py-1 rounded bg-green-100 text-green-600';
+            startBtn.disabled = true;
+            startBtn.className = 'bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed';
+            stopBtn.disabled = false;
+            stopBtn.className = 'bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700';
+            
+            updateLiveLog('Scheduler gestartet');
+        }
+
+        function stopScheduler() {
+            if (!schedulerRunning) return;
+            
+            schedulerRunning = false;
+            const statusElement = document.getElementById('scheduler-status');
+            const startBtn = document.getElementById('start-scheduler-btn');
+            const stopBtn = document.getElementById('stop-scheduler-btn');
+            
+            statusElement.textContent = '● Gestoppt';
+            statusElement.className = 'text-sm px-2 py-1 rounded bg-red-100 text-red-600';
+            startBtn.disabled = false;
+            startBtn.className = 'bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700';
+            stopBtn.disabled = true;
+            stopBtn.className = 'bg-gray-400 text-white px-3 py-1 rounded text-sm cursor-not-allowed';
+            
+            updateLiveLog('Scheduler gestoppt');
+        }
+
+        function createSchedule(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('schedule-name').value;
+            const interval = document.getElementById('schedule-interval').value;
+            const time = document.getElementById('schedule-time').value;
+            const bm25Cache = document.getElementById('schedule-bm25').checked;
+            
+            if (!name.trim()) {
+                alert('Bitte geben Sie einen Namen für den Zeitplan ein.');
+                return;
+            }
+            
+            const schedule = {
+                id: Date.now().toString(),
+                name: name.trim(),
+                interval: interval,
+                time: time || null,
+                enabled: true,
+                config: { bm25_cache: bm25Cache },
+                created: new Date()
+            };
+            
+            demoSchedules.push(schedule);
+            displaySchedules();
+            
+            // Clear form
+            document.getElementById('schedule-form').reset();
+            document.getElementById('schedule-interval').value = 'daily';
+            document.getElementById('schedule-time').value = '02:00';
+            
+            updateLiveLog(`Zeitplan "${name}" erstellt`);
+        }
+
+        function displaySchedules() {
+            const container = document.getElementById('schedules-list');
+            
+            if (demoSchedules.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-8 text-sm">Keine Zeitpläne erstellt</div>';
+                return;
+            }
+            
+            container.innerHTML = demoSchedules.map(schedule => {
+                const statusColor = schedule.enabled ? 'text-green-600' : 'text-gray-400';
+                const statusBg = schedule.enabled ? 'bg-green-100' : 'bg-gray-100';
+                const nextRun = new Date(Date.now() + 3600000).toLocaleString('de-DE');
+                
+                let intervalText = '';
+                switch (schedule.interval) {
+                    case 'hourly': intervalText = 'Stündlich'; break;
+                    case 'daily': intervalText = `Täglich um ${schedule.time || 'N/A'}`; break;
+                    case 'weekly': intervalText = `Wöchentlich um ${schedule.time || 'N/A'}`; break;
+                }
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 ${statusBg}">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="font-medium text-gray-900">${schedule.name}</h4>
+                                <p class="text-xs text-gray-600 mt-1">${intervalText}</p>
+                                <div class="flex space-x-4 mt-2 text-xs text-gray-500">
+                                    <span>Nächster Lauf: ${nextRun}</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2 h-2 rounded-full ${statusColor.replace('text-', 'bg-')}"></span>
+                                <button onclick="toggleSchedule('${schedule.id}')"
+                                        class="text-xs px-2 py-1 rounded ${schedule.enabled ? 'bg-orange-100 text-orange-600 hover:bg-orange-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}">
+                                    ${schedule.enabled ? 'Deaktivieren' : 'Aktivieren'}
+                                </button>
+                                <button onclick="deleteSchedule('${schedule.id}')"
+                                        class="text-xs px-2 py-1 rounded bg-red-100 text-red-600 hover:bg-red-200">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            lucide.createIcons();
+        }
+
+        function toggleSchedule(scheduleId) {
+            const schedule = demoSchedules.find(s => s.id === scheduleId);
+            if (schedule) {
+                schedule.enabled = !schedule.enabled;
+                displaySchedules();
+                updateLiveLog(`Zeitplan "${schedule.name}" ${schedule.enabled ? 'aktiviert' : 'deaktiviert'}`);
+            }
+        }
+
+        function deleteSchedule(scheduleId) {
+            if (!confirm('Möchten Sie diesen Zeitplan wirklich löschen?')) return;
+            
+            const schedule = demoSchedules.find(s => s.id === scheduleId);
+            demoSchedules = demoSchedules.filter(s => s.id !== scheduleId);
+            displaySchedules();
+            updateLiveLog(`Zeitplan "${schedule.name}" gelöscht`);
+        }
+
+        // Event Listeners
+        document.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            // Transfer button
+            if (button.id === 'transfer-button') {
+                e.preventDefault();
+                const action = button.getAttribute('data-action');
+                if (action === 'start') {
+                    startTransfer();
+                } else if (action === 'stop') {
+                    stopTransfer();
+                }
+            }
+            
+            // Search button
+            if (button.id === 'search-button') {
+                e.preventDefault();
+                performHybridSearch();
+            }
+            
+            // MCP Server buttons
+            if (button.id === 'start-mcp-btn') {
+                e.preventDefault();
+                startMCPServer();
+            }
+            
+            if (button.id === 'stop-mcp-btn') {
+                e.preventDefault();
+                stopMCPServer();
+            }
+            
+            // Scheduler buttons
+            if (button.id === 'start-scheduler-btn') {
+                e.preventDefault();
+                startScheduler();
+            }
+            
+            if (button.id === 'stop-scheduler-btn') {
+                e.preventDefault();
+                stopScheduler();
+            }
+            
+            // BM25 refresh
+            if (button.id === 'refresh-bm25') {
+                e.preventDefault();
+                const vocabSize = 1200 + Math.floor(Math.random() * 100);
+                const docsCount = 8000 + Math.floor(Math.random() * 500);
+                const avgLength = (150 + Math.random() * 20).toFixed(1);
+                
+                document.getElementById('bm25-vocabulary').textContent = vocabSize.toLocaleString();
+                document.getElementById('vocab-size').textContent = vocabSize.toLocaleString();
+                document.getElementById('docs-count').textContent = docsCount.toLocaleString();
+                document.getElementById('avg-doc-length').textContent = avgLength;
+                
+                updateLiveLog('BM25 Statistiken aktualisiert');
+            }
+        });
+
+        // Search input enter key
+        document.addEventListener('keydown', (e) => {
+            if (e.target.id === 'search-input' && e.key === 'Enter') {
+                e.preventDefault();
+                performHybridSearch();
+            }
+        });
+
+        // Schedule form submission
+        document.getElementById('schedule-form').addEventListener('submit', createSchedule);
+
+        // Interval change handler
+        document.getElementById('schedule-interval').addEventListener('change', function() {
+            const interval = this.value;
+            const weeklyDays = document.getElementById('weekly-days');
+            const timeInput = document.getElementById('schedule-time');
+            
+            if (interval === 'weekly') {
+                weeklyDays.style.display = 'block';
+            } else if (interval === 'hourly') {
+                weeklyDays.style.display = 'none';
+                timeInput.disabled = true;
+                timeInput.value = '';
+            } else {
+                weeklyDays.style.display = 'none';
+                timeInput.disabled = false;
+            }
+        });
+    </script>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.initLanguageDropdown) { window.initLanguageDropdown(); }
+      });
+    </script>
+</body>
+</html>

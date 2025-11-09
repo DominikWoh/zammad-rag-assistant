@@ -1,0 +1,126 @@
+# Git and version control
+.git
+.gitignore
+README.md
+.gitattributes
+
+# Python specific
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# Virtual environments
+.env
+.env.local
+.env.production
+venv
+ENV
+env
+.venv
+pipenv
+.venv
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation and non-code files
+*.md
+docs/
+*.txt
+*.rst
+*.ipynb
+*.nbconvert.py
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Log files
+*.log
+web_app.log
+zammad_ai.log
+zammad_ingest_*.log
+
+# Data and cache files (exclude from build)
+data/
+cache/
+*.json
+!requirements*.txt
+!.env.example
+
+# Testing
+tests/
+test_*
+*_test.py
+.pytest_cache/
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Local development
+.local/
+.local/bin/
+.local/share/
+
+# Environment specific
+.env
+.env.local
+.env.*.local
+
+# Exclude large model files that will be downloaded
+models/
+weights/
+checkpoints/
+
+# Exclude any sensitive or development data
+secrets/
+credentials/
+*.key
+*.pem
+*.p12
+*.pfx

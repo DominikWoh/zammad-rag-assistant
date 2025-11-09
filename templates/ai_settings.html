@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="{{ 'de' if ui_language == 'DE' else 'en' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KI-Einstellungen - Zammad Qdrant Interface</title>
+    
+    <!-- TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Alpine.js für interaktive Komponenten -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="/static/lang.js"></script>
+    
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* Custom animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .pulse-slow {
+            animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Prompt textarea styling */
+        .prompt-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans antialiased">
+    <div class="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+        <!-- Header -->
+        <header class="bg-white shadow-lg border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div class="flex items-center">
+                        <a href="/" class="flex items-center hover:text-blue-600 transition-colors">
+                            <div class="flex-shrink-0">
+                                <i data-lucide="arrow-left" class="w-6 h-6 text-gray-600 mr-2"></i>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <i data-lucide="brain" class="w-8 h-8 text-purple-600"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h1 class="text-2xl font-bold text-gray-900">Zammad Qdrant Interface</h1>
+                                    <p class="text-sm text-gray-600">KI-Einstellungen</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Language Dropdown -->
+                        <div class="flex items-center px-3 py-2 rounded-lg bg-gray-100">
+                            <i data-lucide="globe" class="w-5 h-5 mr-2"></i>
+                            <select id="ui-language-select" class="bg-transparent text-sm outline-none">
+                                <option value="DE" {{ 'selected' if ui_language == 'DE' else '' }}>DE</option>
+                                <option value="EN" {{ 'selected' if ui_language == 'EN' else '' }}>EN</option>
+                            </select>
+                        </div>
+                        <!-- AI Status Indicator -->
+                        <div class="flex items-center px-3 py-2 rounded-lg bg-gray-100">
+                            <div class="w-3 h-3 rounded-full bg-gray-500 mr-2" id="ai-status-dot"></div>
+                            <span class="text-sm text-gray-700" id="ai-status-text">Status unbekannt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- KI-Einstellungen Karte -->
+            <div class="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+                <div class="flex items-center mb-8">
+                    <div class="p-3 rounded-full bg-purple-100">
+                        <i data-lucide="settings" class="w-8 h-8 text-purple-600"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="text-2xl font-semibold text-gray-900">KI-Einstellungen</h2>
+                        <p class="text-sm text-gray-600">Ollama-Konfiguration und Automatisierung</p>
+                    </div>
+                </div>
+
+                <form class="space-y-8" id="ai-settings-form">
+                    <!-- Ollama Konfiguration -->
+                    <div class="border-b border-gray-200 pb-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                            <i data-lucide="server" class="w-5 h-5 mr-2 text-purple-600"></i>
+                            Ollama-Server
+                        </h3>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Ollama URL -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Ollama URL
+                                </label>
+                                <input type="url" 
+                                       id="ollama-url"
+                                       placeholder="http://localhost:11434"
+                                       class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                                <p class="text-xs text-gray-500 mt-1">Standard: http://localhost:11434</p>
+                            </div>
+
+                            <!-- Model Auswahl -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Ollama Model
+                                </label>
+                                <div class="flex space-x-2">
+                                    <select id="ollama-model" 
+                                            class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                                        <option value="">Model laden...</option>
+                                    </select>
+                                    <button type="button" 
+                                            id="refresh-models"
+                                            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                            title="Models aktualisieren">
+                                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1">Verfügbare Model von Ollama laden</p>
+                            </div>
+                        </div>
+
+                        <!-- Verbindung Testen -->
+                        <div class="mt-6 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <button type="button" 
+                                        id="test-connection"
+                                        class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                                    <i data-lucide="wifi" class="w-4 h-4 inline mr-2"></i>
+                                    Verbindung testen
+                                </button>
+                                <div id="connection-status" class="text-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KI-Features aktivieren -->
+                        <div class="border-b border-gray-200 pb-8">
+                            <h3 class="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                                <i data-lucide="toggle-left" class="w-5 h-5 mr-2 text-purple-600"></i>
+                                KI-Features
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center">
+                                    <input type="checkbox"
+                                           id="ai-enabled"
+                                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                                    <label for="ai-enabled" class="ml-2 block text-sm text-gray-700">
+                                        Automatische Ticket-Bearbeitung aktivieren
+                                    </label>
+                                </div>
+                                <p class="text-xs text-gray-500">Ermöglicht automatische Antworten auf neue Tickets ohne Antworten</p>
+                                
+                                <!-- Service-Status und Steuerung -->
+                                <div class="bg-gray-50 rounded-lg p-4 mt-4">
+                                    <div class="flex items-center justify-between mb-3">
+                                        <h4 class="text-sm font-medium text-gray-700">KI-Service Status</h4>
+                                        <div id="service-status-indicator" class="flex items-center">
+                                            <div class="w-2 h-2 rounded-full bg-gray-400 mr-2" id="service-status-dot"></div>
+                                            <span class="text-xs text-gray-600" id="service-status-text">Unbekannt</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Check-Intervall Konfiguration -->
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Ticket-Check Intervall (Sekunden)
+                                        </label>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="number"
+                                                   id="ai-check-interval"
+                                                   min="30"
+                                                   max="3600"
+                                                   step="30"
+                                                   class="w-32 rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                                            <span class="text-xs text-gray-500">30s - 3600s (1h)</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Wie oft soll nach neuen Tickets gesucht werden?</p>
+                                    </div>
+                                    
+                                    <!-- Maximales Ticket-Alter Konfiguration -->
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Maximales Ticket-Alter (Tage)
+                                        </label>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="number"
+                                                   id="ai-ticket-max-age-days"
+                                                   min="1"
+                                                   max="30"
+                                                   step="1"
+                                                   class="w-32 rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                                            <span class="text-xs text-gray-500">1 - 30 Tage</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Nur Tickets die jünger als X Tage sind werden verarbeitet</p>
+                                    </div>
+
+                                    <!-- Top-K Konfiguration -->
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Top K (Vektor-Suchergebnisse)
+                                        </label>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="number"
+                                                   id="top-k"
+                                                   min="1"
+                                                   max="20"
+                                                   step="1"
+                                                   class="w-32 rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                                            <span class="text-xs text-gray-500">1 - 20 Ergebnisse</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Anzahl der Vektor-Suchergebnisse für die RAG-Suche</p>
+                                    </div>
+
+                                    <!-- Top-Tickets Konfiguration -->
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Top Tickets (relevante Tickets)
+                                        </label>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="number"
+                                                   id="top-tickets"
+                                                   min="1"
+                                                   max="10"
+                                                   step="1"
+                                                   class="w-32 rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50">
+                                            <span class="text-xs text-gray-500">1 - 10 Tickets</span>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Anzahl der relevantesten Tickets für die Antwortgenerierung</p>
+                                    </div>
+                                    
+                                    <div class="flex space-x-2">
+                                        <button type="button"
+                                                id="start-ai-service"
+                                                class="flex-1 bg-green-600 text-white py-2 px-3 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors text-sm">
+                                            <i data-lucide="play" class="w-4 h-4 inline mr-1"></i>
+                                            Service starten
+                                        </button>
+                                        <button type="button"
+                                                id="stop-ai-service"
+                                                class="flex-1 bg-red-600 text-white py-2 px-3 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors text-sm">
+                                            <i data-lucide="square" class="w-4 h-4 inline mr-1"></i>
+                                            Service stoppen
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="mt-3 text-xs text-gray-600">
+                                        <div id="service-stats">
+                                            Verarbeitete Tickets: <span id="processed-tickets-count">0</span> |
+                                            Thread aktiv: <span id="thread-status">Unbekannt</span> |
+                                            Aktuelles Intervall: <span id="current-interval">300s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    <!-- Prompt-Konfiguration -->
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-6 flex items-center">
+                            <i data-lucide="message-square" class="w-5 h-5 mr-2 text-purple-600"></i>
+                            Prompt-Konfiguration
+                        </h3>
+                        
+                        <div class="space-y-6">
+                            <!-- RAG-Suchbegriff-Prompt -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    RAG-Suchbegriff-Prompt
+                                </label>
+                                <textarea id="rag-search-prompt" 
+                                          class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50 prompt-textarea"
+                                          placeholder="Erstelle einen prägnanten Suchbegriff für die RAG-Suche basierend auf folgendem Ticket: {ticket_content}"></textarea>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Verfügbare Variablen: <code class="bg-gray-100 px-1 rounded">{ticket_content}</code>
+                                </p>
+                            </div>
+
+                            <!-- Zammad-Notiz-Prompt -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Zammad-Notiz-Prompt
+                                </label>
+                                <textarea id="zammad-note-prompt" 
+                                          class="w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50 prompt-textarea"
+                                          placeholder="Erstelle eine hilfreiche und professionelle Antwort für folgendes Zammad-Ticket basierend auf den verfügbaren Informationen: {ticket_content}&#10;&#10;Relevante Informationen:&#10;{search_results}"></textarea>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Verfügbare Variablen: <code class="bg-gray-100 px-1 rounded">{ticket_content}</code>, <code class="bg-gray-100 px-1 rounded">{search_results}</code>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Speichern Button -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" 
+                                id="save-settings"
+                                class="bg-purple-600 text-white px-8 py-3 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors font-medium">
+                            <i data-lucide="save" class="w-4 h-4 inline mr-2"></i>
+                            KI-Einstellungen speichern
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadAISettings();
+        });
+
+        // Global variables
+        let currentAIConfig = {};
+
+        // Load AI settings from API
+        async function loadAISettings() {
+            try {
+                const response = await fetch('/api/ai-config');
+                const config = await response.json();
+                currentAIConfig = config;
+                
+                // Populate form fields
+                document.getElementById('ollama-url').value = config.ollama_url || 'http://localhost:11434';
+                document.getElementById('ollama-model').value = config.ollama_model || '';
+                document.getElementById('ai-check-interval').value = config.ai_check_interval || 300;
+                document.getElementById('ai-ticket-max-age-days').value = config.ai_ticket_max_age_days || 1;
+                document.getElementById('top-k').value = config.top_k || 5;
+                document.getElementById('top-tickets').value = config.top_tickets || 5;
+                document.getElementById('ai-enabled').checked = config.ai_enabled || false;
+                document.getElementById('rag-search-prompt').value = (config.rag_search_prompt || '').replace(/\\n/g, '\n');
+                document.getElementById('zammad-note-prompt').value = (config.zammad_note_prompt || '').replace(/\\n/g, '\n');
+                
+                // Update AI status
+                updateAIStatus(config.ai_enabled);
+                
+                // Update interval display
+                document.getElementById('current-interval').textContent = (config.ai_check_interval || 300) + 's';
+                
+                // Load available models
+                await loadOllamaModels();
+                
+            } catch (error) {
+                console.error('Error loading AI settings:', error);
+                showNotification('Fehler beim Laden der KI-Einstellungen', 'error');
+            }
+        }
+
+        // Load available Ollama models
+        async function loadOllamaModels() {
+            try {
+                const response = await fetch('/api/ollama-models');
+                const data = await response.json();
+                
+                const modelSelect = document.getElementById('ollama-model');
+                
+                if (data.status === 'connected' && data.models.length > 0) {
+                    // Clear existing options except the first one
+                    while (modelSelect.children.length > 1) {
+                        modelSelect.removeChild(modelSelect.lastChild);
+                    }
+                    
+                    // Add model options
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                    
+                    // Set current model if available
+                    if (currentAIConfig.ollama_model) {
+                        modelSelect.value = currentAIConfig.ollama_model;
+                    }
+                } else {
+                    // Clear and show error
+                    while (modelSelect.children.length > 1) {
+                        modelSelect.removeChild(modelSelect.lastChild);
+                    }
+                    const errorOption = document.createElement('option');
+                    errorOption.value = '';
+                    errorOption.textContent = 'Keine Modelle verfügbar';
+                    modelSelect.appendChild(errorOption);
+                }
+                
+            } catch (error) {
+                console.error('Error loading Ollama models:', error);
+                const modelSelect = document.getElementById('ollama-model');
+                const errorOption = document.createElement('option');
+                errorOption.value = '';
+                errorOption.textContent = 'Fehler beim Laden';
+                modelSelect.appendChild(errorOption);
+            }
+        }
+
+        // Test Ollama connection
+        async function testConnection() {
+            const testButton = document.getElementById('test-connection');
+            const statusDiv = document.getElementById('connection-status');
+            
+            testButton.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-2 animate-spin"></i>Teste...';
+            testButton.disabled = true;
+            statusDiv.innerHTML = '<span class="text-blue-600">Verbindung wird getestet...</span>';
+            
+            try {
+                const response = await fetch('/api/ai-test-connection', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'connected') {
+                    statusDiv.innerHTML = '<span class="text-green-600">✓ ' + result.message + '</span>';
+                    updateAIStatus(true);
+                } else {
+                    statusDiv.innerHTML = '<span class="text-red-600">✗ ' + result.message + '</span>';
+                    updateAIStatus(false);
+                }
+                
+            } catch (error) {
+                console.error('Error testing connection:', error);
+                statusDiv.innerHTML = '<span class="text-red-600">✗ Verbindungsfehler: ' + error.message + '</span>';
+                updateAIStatus(false);
+            } finally {
+                testButton.innerHTML = '<i data-lucide="wifi" class="w-4 h-4 inline mr-2"></i>Verbindung testen';
+                testButton.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        // Update AI status indicator
+        function updateAIStatus(enabled) {
+            const statusDot = document.getElementById('ai-status-dot');
+            const statusText = document.getElementById('ai-status-text');
+            
+            if (enabled) {
+                statusDot.className = 'w-3 h-3 rounded-full bg-green-500 mr-2';
+                statusText.textContent = 'KI aktiviert';
+                statusText.className = 'text-sm text-green-700';
+            } else {
+                statusDot.className = 'w-3 h-3 rounded-full bg-gray-500 mr-2';
+                statusText.textContent = 'KI deaktiviert';
+                statusText.className = 'text-sm text-gray-700';
+            }
+        }
+
+        // Save AI settings
+        async function saveAISettings() {
+            const saveButton = document.getElementById('save-settings');
+            const originalText = saveButton.innerHTML;
+            
+            saveButton.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-2 animate-spin"></i>Speichere...';
+            saveButton.disabled = true;
+            
+            const config = {
+                ...currentAIConfig,  // Keep existing config
+                ollama_url: document.getElementById('ollama-url').value,
+                ollama_model: document.getElementById('ollama-model').value,
+                ai_check_interval: parseInt(document.getElementById('ai-check-interval').value) || 300,
+                ai_ticket_max_age_days: parseInt(document.getElementById('ai-ticket-max-age-days').value) || 1,
+                top_k: parseInt(document.getElementById('top-k').value) || 5,
+                top_tickets: parseInt(document.getElementById('top-tickets').value) || 5,
+                ai_enabled: document.getElementById('ai-enabled').checked,
+                rag_search_prompt: document.getElementById('rag-search-prompt').value.replace(/\n/g, '\\n'),
+                zammad_note_prompt: document.getElementById('zammad-note-prompt').value.replace(/\n/g, '\\n')
+            };
+            
+            try {
+                const response = await fetch('/api/ai-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                if (response.ok) {
+                    currentAIConfig = config;
+                    showNotification('KI-Einstellungen erfolgreich gespeichert!', 'success');
+                    updateAIStatus(config.ai_enabled);
+                    
+                    // Automatisch Service starten/stoppen basierend auf AI_ENABLED
+                    if (config.ai_enabled) {
+                        showNotification('Starte KI-Service...', 'info');
+                        await startAIService();
+                    } else {
+                        showNotification('Stoppe KI-Service...', 'info');
+                        await stopAIService();
+                    }
+                } else {
+                    const error = await response.json();
+                    showNotification('Fehler beim Speichern: ' + (error.detail || 'Unbekannter Fehler'), 'error');
+                }
+            } catch (error) {
+                console.error('Error saving AI settings:', error);
+                showNotification('Fehler beim Speichern der KI-Einstellungen: ' + error.message, 'error');
+            } finally {
+                saveButton.innerHTML = originalText;
+                saveButton.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        // Show notification
+        function showNotification(message, type) {
+            let alertClass, icon;
+            
+            if (type === 'success') {
+                alertClass = 'bg-green-100 border-green-400 text-green-700';
+                icon = 'check-circle';
+            } else if (type === 'error') {
+                alertClass = 'bg-red-100 border-red-400 text-red-700';
+                icon = 'alert-circle';
+            } else if (type === 'info') {
+                alertClass = 'bg-blue-100 border-blue-400 text-blue-700';
+                icon = 'info';
+            } else {
+                alertClass = 'bg-gray-100 border-gray-400 text-gray-700';
+                icon = 'info';
+            }
+            
+            const alert = document.createElement('div');
+            alert.className = `fixed top-4 right-4 px-4 py-3 rounded border ${alertClass} z-50`;
+            alert.innerHTML = `<i data-lucide="${icon}" class="w-4 h-4 inline mr-2"></i>${message}`;
+            document.body.appendChild(alert);
+            
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Event listeners
+        document.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const buttonId = button.id;
+            
+            if (buttonId === 'test-connection') {
+                e.preventDefault();
+                testConnection();
+            } else if (buttonId === 'save-settings') {
+                e.preventDefault();
+                saveAISettings();
+            } else if (buttonId === 'refresh-models') {
+                e.preventDefault();
+                loadOllamaModels();
+            }
+        });
+
+        // Update AI status when checkbox changes
+        document.getElementById('ai-enabled').addEventListener('change', (e) => {
+            updateAIStatus(e.target.checked);
+        });
+
+        // Load AI service status
+        async function loadAIServiceStatus() {
+            try {
+                const response = await fetch('/api/ai-service-status');
+                const status = await response.json();
+                updateServiceStatus(status);
+            } catch (error) {
+                console.error('Error loading AI service status:', error);
+                updateServiceStatus({running: false, error: error.message});
+            }
+        }
+
+        // Update service status display
+        function updateServiceStatus(status) {
+            const statusDot = document.getElementById('service-status-dot');
+            const statusText = document.getElementById('service-status-text');
+            const processedCount = document.getElementById('processed-tickets-count');
+            const threadStatus = document.getElementById('thread-status');
+            const currentInterval = document.getElementById('current-interval');
+
+            if (status.running && !status.error) {
+                statusDot.className = 'w-2 h-2 rounded-full bg-green-500 mr-2';
+                statusText.textContent = 'Läuft';
+                statusText.className = 'text-xs text-green-600';
+            } else {
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500 mr-2';
+                statusText.textContent = status.error ? 'Fehler' : 'Gestoppt';
+                statusText.className = 'text-xs text-red-600';
+            }
+
+            processedCount.textContent = status.processed_tickets_count || 0;
+            threadStatus.textContent = status.thread_alive ? 'Ja' : 'Nein';
+            if (currentInterval) {
+                currentInterval.textContent = (status.check_interval || 300) + 's';
+            }
+        }
+
+        // Start AI service
+        async function startAIService() {
+            const button = document.getElementById('start-ai-service');
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-1 animate-spin"></i>Starte...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/ai-service-start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'started') {
+                    showNotification('KI-Service erfolgreich gestartet!', 'success');
+                    await loadAIServiceStatus(); // Refresh status
+                } else {
+                    showNotification('Fehler: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error starting AI service:', error);
+                showNotification('Fehler beim Starten des KI-Services: ' + error.message, 'error');
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        // Stop AI service
+        async function stopAIService() {
+            const button = document.getElementById('stop-ai-service');
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = '<i data-lucide="loader" class="w-4 h-4 inline mr-1 animate-spin"></i>Stoppe...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/ai-service-stop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'stopped') {
+                    showNotification('KI-Service erfolgreich gestoppt!', 'success');
+                    await loadAIServiceStatus(); // Refresh status
+                } else {
+                    showNotification('Fehler: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error stopping AI service:', error);
+                showNotification('Fehler beim Stoppen des KI-Services: ' + error.message, 'error');
+            } finally {
+                button.innerHTML = originalText;
+                button.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        // Event listeners for service control
+        document.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const buttonId = button.id;
+            
+            if (buttonId === 'test-connection') {
+                e.preventDefault();
+                testConnection();
+            } else if (buttonId === 'save-settings') {
+                e.preventDefault();
+                saveAISettings();
+            } else if (buttonId === 'refresh-models') {
+                e.preventDefault();
+                loadOllamaModels();
+            } else if (buttonId === 'start-ai-service') {
+                e.preventDefault();
+                startAIService();
+            } else if (buttonId === 'stop-ai-service') {
+                e.preventDefault();
+                stopAIService();
+            }
+        });
+
+        // Load service status on page load and refresh every 30 seconds
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAIServiceStatus();
+            setInterval(loadAIServiceStatus, 30000);
+        });
+    </script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.initLanguageDropdown) { window.initLanguageDropdown(); }
+  });
+</script>
+</body>
+</html>

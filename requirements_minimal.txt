@@ -1,0 +1,9 @@
+# Minimale Dependencies mit neuesten Versionen
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+pydantic
+python-dotenv
+websockets
+httpx

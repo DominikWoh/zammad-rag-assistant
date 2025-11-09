@@ -1,0 +1,42 @@
+# Zammad Qdrant RAG System - Complete Dependencies
+# Core Web Framework
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+pydantic
+python-dotenv
+websockets
+httpx
+
+# Database & Vector Search
+qdrant-client
+sentence-transformers
+transformers
+torch
+tokenizers
+
+# Text Processing & ML
+regex
+beautifulsoup4
+tqdm
+nltk
+scikit-learn
+
+# HTTP Requests & API Client
+requests
+urllib3
+
+# Utilities
+python-dateutil
+packaging
+certifi
+charset-normalizer
+idna
+
+# Monitoring & Logging
+psutil
+
+# Development & Testing (optional for container)
+pytest
+pytest-asyncio
