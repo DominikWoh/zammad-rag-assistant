@@ -3,6 +3,73 @@ version: '3.8'
 services:
   zammad-rag-assistant:
     image: duftertyp/zammad-rag-assistant:latest
+    container_name: zammad-rag-assistant
+    restart: unless-stopped
     ports:
       - "8000:8000"
       - "8083:8083"
+    environment:
+      - ZAMMAD_URL=${ZAMMAD_URL}
+      - ZAMMAD_TOKEN=${ZAMMAD_TOKEN}
+      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - COLLECTION_NAME=${COLLECTION_NAME:-zammad_tickets}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
+      - AI_ENABLED=${AI_ENABLED:-true}
+      - TOP_K=${TOP_K:-200}
+      - TOP_TICKETS=${TOP_TICKETS:-10}
+      - MCP_API_KEY=${MCP_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./cache:/app/cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: zammad-rag-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: zammad-rag-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  qdrant_data:
+  ollama_data:
