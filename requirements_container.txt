@@ -37,6 +37,9 @@ idna
 # Monitoring & Logging
 psutil
 
+# MCP Server
+fastmcp
+
 # Development & Testing (optional for container)
 pytest
 pytest-asyncio

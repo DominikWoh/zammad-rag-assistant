@@ -441,10 +441,10 @@ class ZammadAIClient:
                 "ticket_id": ticket_id,
                 "subject": "AI Assistant",
                 "body": generated_answer,
-                "type": "note",              # Notiz
-                "internal": True,            # interne Sichtbarkeit -> Rahmen
-                "sender": "Agent",           # korrektes Feld laut API
-                "content_type": "text/html", # konsistente Darstellung im UI
+                "type": "note",
+                "internal": True,
+                "sender": "Agent",
+                "content_type": "text/plain",
             }
             response = requests.post(url, headers=self.get_headers(), json=payload, timeout=30)
             response.raise_for_status()

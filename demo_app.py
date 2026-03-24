@@ -12,16 +12,17 @@ import time
 import glob
 import socket
 import platform
-from datetime import datetime
+import threading
+import atexit
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-from pathlib import Path
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
+from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel
 import requests
 from dotenv import load_dotenv
@@ -108,15 +109,17 @@ class ConfigData:
 
 # Global state
 transfer_status = TransferStatus()
+transfer_lock = threading.Lock()
 current_process: Optional[subprocess.Popen] = None
 mcp_server_process: Optional[subprocess.Popen] = None
 
-# Schedule state
-import threading
-import atexit
-from datetime import timedelta
-import json
+def mask_secret(value: str) -> str:
+    """Mask sensitive values, showing only last 4 characters"""
+    if not value or len(value) < 4:
+        return "***"
+    return "***" + value[-4:]
 
+# Schedule state
 schedule_lock = threading.Lock()
 schedule_thread: Optional[threading.Thread] = None
 schedule_running = False
@@ -474,12 +477,6 @@ def run_scheduled_transfer(schedule_config: ScheduleConfig) -> None:
     try:
         logger.info(f"Starting scheduled transfer: {schedule_config.name}")
         
-        # Update transfer status BEFORE starting
-        transfer_status.is_running = True
-        transfer_status.start_time = datetime.now()
-        transfer_status.progress = 0
-        transfer_status.error_message = None
-        
         # Build command arguments
         cmd = ["python", "zammad_to_qdrant.py"]
         
@@ -487,12 +484,20 @@ def run_scheduled_transfer(schedule_config: ScheduleConfig) -> None:
             cmd.append("--use-cached-bm25")
         
         # Start process
-        current_process = subprocess.Popen(
+        new_process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             cwd=os.getcwd()
         )
+        
+        # Update transfer status AFTER successful process start
+        with transfer_lock:
+            current_process = new_process
+            transfer_status.is_running = True
+            transfer_status.start_time = datetime.now()
+            transfer_status.progress = 0
+            transfer_status.error_message = None
         
         logger.info(f"Scheduled transfer started with PID: {current_process.pid}")
         
@@ -501,8 +506,9 @@ def run_scheduled_transfer(schedule_config: ScheduleConfig) -> None:
         
     except Exception as e:
         logger.error(f"Failed to start scheduled transfer: {str(e)}")
-        transfer_status.is_running = False
-        transfer_status.error_message = str(e)
+        with transfer_lock:
+            transfer_status.is_running = False
+            transfer_status.error_message = str(e)
 
 def scheduler_worker():
     """Worker-Thread für Scheduler"""
@@ -590,7 +596,11 @@ app = FastAPI(
 
 # Statische Dateien und Templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+_jinja_env = Environment(loader=FileSystemLoader("templates"))
+
+def _render(template_name: str, **context):
+    template = _jinja_env.get_template(template_name)
+    return HTMLResponse(template.render(**context))
 
 @app.on_event("startup")
 async def init_scheduler_on_startup():
@@ -618,19 +628,19 @@ async def init_scheduler_on_startup():
 async def dashboard(request: Request):
     """Hauptdashboard mit Ticket-Transfer und Such-Interface"""
     ui_lang = os.getenv("UI_LANGUAGE", "DE").upper()
-    return templates.TemplateResponse("dashboard.html", {"request": request, "ui_language": ui_lang})
+    return _render("dashboard.html", request=request, ui_language=ui_lang)
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings(request: Request):
     """Einstellungsseite"""
     ui_lang = os.getenv("UI_LANGUAGE", "DE").upper()
-    return templates.TemplateResponse("settings.html", {"request": request, "ui_language": ui_lang})
+    return _render("settings.html", request=request, ui_language=ui_lang)
 
 @app.get("/ai-settings", response_class=HTMLResponse)
 async def ai_settings(request: Request):
     """KI-Einstellungsseite"""
     ui_lang = os.getenv("UI_LANGUAGE", "DE").upper()
-    return templates.TemplateResponse("ai_settings.html", {"request": request, "ui_language": ui_lang})
+    return _render("ai_settings.html", request=request, ui_language=ui_lang)
 
 # API Routes for Dashboard
 @app.get("/api/transfer-status")
@@ -639,32 +649,32 @@ async def get_transfer_status():
     global transfer_status, current_process
     
     # Check if process is still running
-    if current_process:
-        poll_result = current_process.poll()
-        if poll_result is None:
-            transfer_status.is_running = True
-            logger.debug(f"Process {current_process.pid} is still running")
+    with transfer_lock:
+        if current_process:
+            poll_result = current_process.poll()
+            if poll_result is None:
+                transfer_status.is_running = True
+                logger.debug(f"Process {current_process.pid} is still running")
+            else:
+                transfer_status.is_running = False
+                return_code = current_process.returncode
+                logger.info(f"Transfer process finished with return code: {return_code}")
+                current_process = None
         else:
-            # Process has finished
+            logger.debug("No current process")
             transfer_status.is_running = False
-            return_code = current_process.returncode
-            logger.info(f"Transfer process finished with return code: {return_code}")
-            current_process = None
-    else:
-        logger.debug("No current process")
-        transfer_status.is_running = False
-    
-    status_data = {
-        "is_running": transfer_status.is_running,
-        "progress": transfer_status.progress,
-        "current_ticket": transfer_status.current_ticket,
-        "total_tickets": transfer_status.total_tickets,
-        "processed_tickets": transfer_status.processed_tickets,
-        "start_time": transfer_status.start_time.isoformat() if transfer_status.start_time else None,
-        "error_message": transfer_status.error_message,
-        "process_running": current_process is not None and current_process.poll() is None,
-        "process_pid": current_process.pid if current_process else None
-    }
+        
+        status_data = {
+            "is_running": transfer_status.is_running,
+            "progress": transfer_status.progress,
+            "current_ticket": transfer_status.current_ticket,
+            "total_tickets": transfer_status.total_tickets,
+            "processed_tickets": transfer_status.processed_tickets,
+            "start_time": transfer_status.start_time.isoformat() if transfer_status.start_time else None,
+            "error_message": transfer_status.error_message,
+            "process_running": current_process is not None and current_process.poll() is None,
+            "process_pid": current_process.pid if current_process else None
+        }
     
     logger.info(f"Transfer status: {status_data}")
     return status_data
@@ -675,37 +685,41 @@ async def stop_transfer():
     global current_process, transfer_status
     
     # Check if process is actually running
-    process_running = current_process and current_process.poll() is None
+    with transfer_lock:
+        process_to_stop = current_process
+        process_running = process_to_stop and process_to_stop.poll() is None
+    
     if not process_running:
         raise HTTPException(status_code=400, detail="Kein Transfer läuft")
     
     try:
-        if current_process and current_process.poll() is None:
-            logger.info(f"Stopping transfer process (PID: {current_process.pid})")
-            # Terminate the process
-            current_process.terminate()
+        if process_to_stop:
+            logger.info(f"Stopping transfer process (PID: {process_to_stop.pid})")
+            process_to_stop.terminate()
             
             # Wait for graceful termination (5 seconds)
             try:
-                current_process.wait(timeout=5)
+                process_to_stop.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 # Force kill if still running
-                logger.warning(f"Force killing process {current_process.pid}")
-                current_process.kill()
-                current_process.wait()
+                logger.warning(f"Force killing process {process_to_stop.pid}")
+                process_to_stop.kill()
+                process_to_stop.wait()
             
-            logger.info(f"Transfer process stopped (PID: {current_process.pid})")
+            logger.info(f"Transfer process stopped (PID: {process_to_stop.pid})")
         
         # Reset status
-        transfer_status.is_running = False
-        transfer_status.error_message = None
-        current_process = None
+        with transfer_lock:
+            transfer_status.is_running = False
+            transfer_status.error_message = None
+            current_process = None
         
         logger.info("Transfer status reset to not running")
         return {"status": "stopped", "message": "Transfer gestoppt"}
     except Exception as e:
         logger.error(f"Failed to stop transfer: {str(e)}")
-        transfer_status.is_running = False
+        with transfer_lock:
+            transfer_status.is_running = False
         raise HTTPException(status_code=500, detail=f"Fehler beim Stoppen: {str(e)}")
 
 @app.post("/api/transfer-start")
@@ -714,7 +728,8 @@ async def start_transfer(config: Dict[str, Any]):
     global current_process, transfer_status
     
     # Check if process is actually running
-    process_running = current_process and current_process.poll() is None
+    with transfer_lock:
+        process_running = current_process and current_process.poll() is None
     if process_running:
         raise HTTPException(status_code=400, detail="Transfer läuft bereits")
     
@@ -730,12 +745,6 @@ async def start_transfer(config: Dict[str, Any]):
                     current_process.wait()
             current_process = None
         
-        # Update transfer status BEFORE starting
-        transfer_status.is_running = True
-        transfer_status.start_time = datetime.now()
-        transfer_status.progress = 0
-        transfer_status.error_message = None
-        
         # Build command arguments
         cmd = ["python", "zammad_to_qdrant.py"]
         
@@ -743,19 +752,28 @@ async def start_transfer(config: Dict[str, Any]):
             cmd.append("--use-cached-bm25")
         
         # Start process without capturing output to prevent blocking
-        current_process = subprocess.Popen(
+        new_process = subprocess.Popen(
             cmd,
-            stdout=subprocess.DEVNULL,  # Don't capture output
-            stderr=subprocess.DEVNULL,  # Don't capture errors
-            cwd=os.getcwd()  # Ensure correct working directory
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            cwd=os.getcwd()
         )
+        
+        # Update transfer status AFTER successful process start
+        with transfer_lock:
+            current_process = new_process
+            transfer_status.is_running = True
+            transfer_status.start_time = datetime.now()
+            transfer_status.progress = 0
+            transfer_status.error_message = None
         
         logger.info(f"Transfer process started with PID: {current_process.pid}")
         
         return {"status": "started", "message": f"Transfer gestartet (PID: {current_process.pid})"}
     except Exception as e:
-        transfer_status.is_running = False
-        transfer_status.error_message = str(e)
+        with transfer_lock:
+            transfer_status.is_running = False
+            transfer_status.error_message = str(e)
         logger.error(f"Failed to start transfer: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Fehler beim Starten: {str(e)}")
 
@@ -766,8 +784,26 @@ async def get_live_log():
 
 @app.get("/api/config")
 async def get_config():
-    """Get current configuration from .env"""
-    return load_env_config().__dict__
+    """Get current configuration from .env (with masked secrets)"""
+    config = load_env_config()
+    return {
+        "zammad_url": config.zammad_url,
+        "zammad_token": mask_secret(config.zammad_token),
+        "qdrant_url": config.qdrant_url,
+        "qdrant_api_key": mask_secret(config.qdrant_api_key),
+        "bm25_cache": config.bm25_cache,
+        "min_age_days": config.min_age_days,
+        "start_date": config.start_date,
+        "ollama_url": config.ollama_url,
+        "ollama_model": config.ollama_model,
+        "ai_check_interval": config.ai_check_interval,
+        "ai_ticket_max_age_days": config.ai_ticket_max_age_days,
+        "top_k": config.top_k,
+        "top_tickets": config.top_tickets,
+        "rag_search_prompt": config.rag_search_prompt,
+        "zammad_note_prompt": config.zammad_note_prompt,
+        "ai_enabled": config.ai_enabled,
+    }
 
 @app.post("/api/config")
 async def save_config(config: ConfigData):
@@ -849,8 +885,26 @@ async def bm25_stats():
 # KI-Einstellungen API Routes
 @app.get("/api/ai-config")
 async def get_ai_config():
-    """Get current AI configuration from .env"""
-    return load_env_config().__dict__
+    """Get current AI configuration from .env (with masked secrets)"""
+    config = load_env_config()
+    return {
+        "zammad_url": config.zammad_url,
+        "zammad_token": mask_secret(config.zammad_token),
+        "qdrant_url": config.qdrant_url,
+        "qdrant_api_key": mask_secret(config.qdrant_api_key),
+        "bm25_cache": config.bm25_cache,
+        "min_age_days": config.min_age_days,
+        "start_date": config.start_date,
+        "ollama_url": config.ollama_url,
+        "ollama_model": config.ollama_model,
+        "ai_check_interval": config.ai_check_interval,
+        "ai_ticket_max_age_days": config.ai_ticket_max_age_days,
+        "top_k": config.top_k,
+        "top_tickets": config.top_tickets,
+        "rag_search_prompt": config.rag_search_prompt,
+        "zammad_note_prompt": config.zammad_note_prompt,
+        "ai_enabled": config.ai_enabled,
+    }
 
 @app.post("/api/ai-config")
 async def save_ai_config(config: ConfigData):
@@ -1574,6 +1628,6 @@ if __name__ == "__main__":
         "demo_app:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=os.getenv("DEV_MODE", "").lower() in ("1", "true"),
         log_level="info"
     )
