@@ -27,12 +27,15 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY . /app/
 
 # Create necessary directories
-RUN mkdir -p /app/logs /app/cache /app/data
+RUN mkdir -p /app/logs /app/cache /app/data /app/models
 
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV TRANSFORMERS_CACHE=/app/models
+ENV HF_HOME=/app/models
+ENV SENTENCE_TRANSFORMERS_HOME=/app/models
 
 # Expose application ports
 EXPOSE 8000 8083

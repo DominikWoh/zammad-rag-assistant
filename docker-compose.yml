@@ -8,28 +8,25 @@ services:
     ports:
       - "8000:8000"
       - "8083:8083"
+    env_file:
+      - .env
     environment:
-      - ZAMMAD_URL=${ZAMMAD_URL}
-      - ZAMMAD_TOKEN=${ZAMMAD_TOKEN}
       - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
-      - COLLECTION_NAME=${COLLECTION_NAME:-zammad_tickets}
       - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
-      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
-      - AI_ENABLED=${AI_ENABLED:-true}
-      - TOP_K=${TOP_K:-200}
-      - TOP_TICKETS=${TOP_TICKETS:-10}
-      - MCP_API_KEY=${MCP_API_KEY}
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
       - ./cache:/app/cache
+      - ./models:/app/models
+      - ./bm25_stats.json:/app/bm25_stats.json
+      - huggingface_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
     depends_on:
       qdrant:
         condition: service_healthy
@@ -73,3 +70,5 @@ services:
 volumes:
   qdrant_data:
   ollama_data:
+  huggingface_cache:
+  torch_cache:

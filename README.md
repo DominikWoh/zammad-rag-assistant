@@ -255,13 +255,26 @@ graph TB
 
 ### Service Details
 
-| Service | Port | Function | Volume |
+| Service | Port | Function | Volumes |
 |---------|------|----------|---------|
+| **zammad-rag-app** | 8000 | Web Interface | `./logs`, `./data`, `./cache`, `./models` |
+| **mcp-search** | 8083 | Search API | `bm25_stats.json` |
 | **qdrant** | 6333 | Vector Database | `qdrant_data` |
 | **ollama** | 11434 | AI Model Service | `ollama_data` |
-| **zammad-rag-app** | 8000 | Web Interface | `./logs`, `./data` |
-| **mcp-search** | 8083 | Search API | `bm25_stats.json` |
-| **zammad-ai** | - | Background Processing | `./logs` |
+
+### Volume Structure
+
+```
+./
+├── logs/              # Application logs
+├── data/              # Persistent data
+├── cache/             # BM25 cache, temporary files
+├── models/            # Downloaded embedding models (persisted)
+├── bm25_stats.json    # BM25 statistics
+└── .env               # Environment configuration
+```
+
+> **Note**: Embedding models (HuggingFace/SentenceTransformer) are downloaded on first start (~2GB) and cached in `./models` and Docker volumes for faster restarts.
 
 ## 📡 API Documentation
 
