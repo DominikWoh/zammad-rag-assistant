@@ -10,9 +10,6 @@ services:
       - "8083:8083"
     env_file:
       - .env
-    environment:
-      - QDRANT_URL=${QDRANT_URL:-http://qdrant:6333}
-      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data
@@ -27,48 +24,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    depends_on:
-      qdrant:
-        condition: service_healthy
-
-  qdrant:
-    image: qdrant/qdrant:v1.7.0
-    container_name: zammad-rag-qdrant
-    restart: unless-stopped
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: zammad-rag-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 volumes:
-  qdrant_data:
-  ollama_data:
   huggingface_cache:
   torch_cache:
