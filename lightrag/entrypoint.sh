@@ -33,7 +33,13 @@ _original_send = httpx.AsyncClient.send
 
 async def _patched_send(self, request, **kwargs):
     try:
-        if request.method == "POST" and "/chat/completions" in str(request.url):
+        url_str = str(request.url)
+        
+        # Fix embedding endpoint: /api/embed → /embeddings (LM Studio compat)
+        if "/api/embed" in url_str and request.method == "POST":
+            request._url = httpx.URL(url_str.replace("/api/embed", "/embeddings"))
+        
+        if request.method == "POST" and "/chat/completions" in url_str:
             body = _json.loads(request.content)
             changed = False
 
@@ -74,8 +80,24 @@ async def _patched_send(self, request, **kwargs):
 
 httpx.AsyncClient.send = _patched_send
 PATCHEOF
-    export PYTHONPATH="/app:${PYTHONPATH:-}"
-    echo "[entrypoint] LM Studio patch installed"
+    # Patch openai.py directly: fix embedding URL + response_format
+    OPENAI_PY="/app/lightrag/llm/openai.py"
+    if [ -f "$OPENAI_PY" ]; then
+        echo "[entrypoint] Patching $OPENAI_PY..."
+        
+        # 1. Fix embedding endpoint: LightRAG sends to /api/embed, LM Studio wants /embeddings
+        sed -i 's|/api/embed|/embeddings|g' "$OPENAI_PY"
+        
+        # 2. Strip response_format json_object (LM Studio doesn't support it)
+        sed -i 's|kwargs\["response_format"\] = {"type": "json_object"}|kwargs["response_format"] = None|g' "$OPENAI_PY"
+        
+        # 3. Add enable_thinking=False and max_tokens before the API call
+        if ! grep -q "enable_thinking" "$OPENAI_PY"; then
+            sed -i '/openai_async_client\.chat\.completions\.create/i\        kwargs.setdefault("extra_body", {}).setdefault("chat_template_kwargs", {})["enable_thinking"] = False\n        kwargs.setdefault("max_tokens", 8192)' "$OPENAI_PY"
+        fi
+        
+        echo "[entrypoint] openai.py patched (embedding URL + response_format + thinking)"
+    fi
 fi
 
 echo "[entrypoint] Starting LightRAG server..."

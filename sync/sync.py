@@ -40,6 +40,7 @@ TICKET_MIN_AGE_DAYS = int(os.getenv("TICKET_MIN_AGE_DAYS", "7"))
 START_DATE = os.getenv("START_DATE", "2020-01-01")
 SYNC_INTERVAL = os.getenv("SYNC_INTERVAL", "daily").lower()
 SYNC_TIME = os.getenv("SYNC_TIME", "02:00")
+SYNC_LIMIT = int(os.getenv("SYNC_LIMIT", "0"))  # 0 = unlimited
 PROGRESS_DB = os.getenv("PROGRESS_DB", "data/sync_progress.db")
 
 INTERVAL_SECONDS = {
@@ -388,6 +389,9 @@ def run_sync(limit: int = None):
         log.info(f"Delta sync: tickets updated after {last_sync}")
     else:
         log.info("Initial sync: fetching all closed tickets")
+    
+    if SYNC_LIMIT > 0:
+        log.info(f"TEST MODE: limited to {SYNC_LIMIT} tickets")
 
     synced = 0
     skipped = 0
@@ -423,6 +427,12 @@ def run_sync(limit: int = None):
                 continue
 
             if limit and synced >= limit:
+                save_last_sync()
+                _summary(synced, skipped)
+                return
+            
+            if not limit and SYNC_LIMIT > 0 and synced >= SYNC_LIMIT:
+                log.info(f"SYNC_LIMIT reached ({SYNC_LIMIT}), stopping.")
                 save_last_sync()
                 _summary(synced, skipped)
                 return

@@ -81,8 +81,38 @@ All settings are in `.env`. Key options:
 | `START_DATE` | `2020-01-01` | Only sync tickets created after this date |
 | `SYNC_INTERVAL` | `daily` | `hourly`, `daily`, or `weekly` |
 | `SYNC_TIME` | `02:00` | Time for daily/weekly sync (24h `HH:MM`) |
+| `SYNC_LIMIT` | `0` | Max tickets per sync cycle (0 = unlimited, 50 = test mode) |
 
-### LLM Backend Examples
+### Managing the Sync
+
+```bash
+# Stop sync (LightRAG keeps running)
+docker stop zammad-sync
+
+# Start sync
+docker start zammad-sync
+
+# Run one manual sync cycle (ignores schedule)
+docker exec zammad-sync python sync.py --once --limit=50
+
+# View sync logs
+docker logs zammad-sync --tail 20
+
+# Check progress
+docker exec zammad-sync python -c "
+import sqlite3; c=sqlite3.connect('data/sync_progress.db')
+print('Synced:', c.execute('SELECT COUNT(*) FROM sync_progress WHERE status=\"done\"').fetchone()[0])
+print('Failed:', c.execute('SELECT COUNT(*) FROM sync_progress WHERE status=\"failed\"').fetchone()[0])
+"
+```
+
+### Test Mode
+
+To try it out with just 50 tickets, set in `.env`:
+```ini
+SYNC_LIMIT=50
+```
+Then `docker restart zammad-sync`. Remove the line or set to `0` for full sync.
 
 **Ollama:**
 ```ini
