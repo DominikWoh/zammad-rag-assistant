@@ -1,0 +1,49 @@
+services:
+  # ============================================
+  # LightRAG: RAG Engine + Knowledge Graph
+  # ============================================
+  lightrag:
+    image: ghcr.io/hkuds/lightrag:latest
+    container_name: zammad-lightrag
+    restart: unless-stopped
+    ports:
+      - "9621:9621"
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/lightrag-config.env:ro
+      - ./lightrag/entrypoint.sh:/entrypoint.sh:ro
+      - lightrag_data:/app/rag_storage
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - zammad-net
+
+  # ============================================
+  # Sync: Zammad → LightRAG ticket sync
+  # ============================================
+  sync:
+    build: ./sync
+    container_name: zammad-sync
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - LIGHTRAG_URL=http://lightrag:9621
+    volumes:
+      - sync_data:/app/data
+    depends_on:
+      - lightrag
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - zammad-net
+
+volumes:
+  lightrag_data:
+  sync_data:
+
+networks:
+  zammad-net:
+    driver: bridge
