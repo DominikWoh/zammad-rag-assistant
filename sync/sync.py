@@ -241,11 +241,21 @@ def format_ticket(ticket: dict, articles: list[dict]) -> str:
         lines.append(body)
         lines.append("")
 
-    return "\n".join(lines)
+    formatted = "\n".join(lines)
+    # Cap total ticket size — long tickets cause LLM timeouts during entity extraction
+    if len(formatted) > 6000:
+        formatted = formatted[:6000] + "\n\n[... ticket truncated for processing ...]"
+    return formatted
 
 
 def clean_body(text: str) -> str:
-    """Remove email signatures, quoted replies, excessive whitespace."""
+    """Remove email signatures, quoted replies, HTML, excessive whitespace."""
+    # Strip HTML tags if any
+    import re
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&[a-z]+;', ' ', text)
+    text = re.sub(r'\s+', ' ', text)
+
     for marker in ["-- ", "--\n", "Von:", "Gesendet:", "From:", "Sent:"]:
         idx = text.find(marker)
         if idx > 50:
@@ -264,7 +274,12 @@ def clean_body(text: str) -> str:
             empty = 0
             result.append(line)
 
-    return "\n".join(result).strip()
+    cleaned = "\n".join(result).strip()
+    # Truncate very long articles to keep LLM context manageable
+    # (most ticket content fits in 2000 chars, longer articles are usually noise)
+    if len(cleaned) > 3000:
+        cleaned = cleaned[:3000] + "\n[... truncated ...]"
+    return cleaned
 
 
 def content_hash(ticket: dict, articles: list[dict]) -> str:

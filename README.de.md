@@ -93,6 +93,14 @@ docker logs -f zammad-sync
 - 🗨️ *"Häufige Probleme beim Passwort-Reset"*
 - 🗨️ *"Druckerfehler an Maschine 307"*
 
+### 🔌 Open WebUI Integration
+
+Willst du aus Open WebUI heraus suchen? LightRAG hat eine **eingebaute Ollama-kompatible Schnittstelle**.
+
+**Schnellweg:** In Open WebUI → Settings → Connections → Ollama API → URL `http://localhost:9621` → Model `lightrag:latest` erscheint.
+
+Für die volle Anleitung inkl. Custom-🔍-Tool siehe [`openwebui-functions/README.md`](openwebui-functions/README.md).
+
 ---
 
 ## ⚙️ Konfiguration

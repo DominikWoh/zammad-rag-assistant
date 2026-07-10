@@ -93,6 +93,14 @@ Open **http://localhost:9621/webui** and ask:
 - 🗨️ *"Common password reset problems"*
 - 🗨️ *"Druckerfehler an Maschine 307"*
 
+### 🔌 Open WebUI Integration
+
+Want to search tickets from Open WebUI? LightRAG has a **built-in Ollama-compatible interface**.
+
+**Quick way:** In Open WebUI → Settings → Connections → Ollama API → URL `http://localhost:9621` → model `lightrag:latest` appears.
+
+For the full guide including a custom 🔍 tool, see [`openwebui-functions/README.md`](openwebui-functions/README.md).
+
 ---
 
 ## ⚙️ Configuration
