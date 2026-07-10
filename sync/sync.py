@@ -323,6 +323,39 @@ def wait_for_lightrag():
 # Sync Logic
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Ticket Filtering
+# ---------------------------------------------------------------------------
+
+# Exact title matches to skip (lowercase comparison)
+SKIP_TITLES = [
+    "usv-sr1-01 - periodic report",
+    "periodic report - eaton 9px 5000i",
+    "mercury managed print services fehler",
+]
+
+# Substring matches in title (lowercase comparison)
+SKIP_KEYWORDS = [
+    "[suspected phishing]",
+    "[suspected spam]",
+    "sql server-warnungssystem:",
+    "[fehler] sql server-auftragssystem:",
+    "undelivered mail",
+    "alarm notice!",
+]
+
+
+def should_skip_title(title: str) -> bool:
+    """Return True if ticket should be skipped based on title."""
+    if not title:
+        return False
+    clean = title.strip()
+    if clean.lower() in SKIP_TITLES:
+        return True
+    lower = clean.lower()
+    return any(kw in lower for kw in SKIP_KEYWORDS)
+
+
 def should_sync(ticket: dict) -> bool:
     created = ticket.get("created_at", "")[:10]
     if created < START_DATE:
@@ -344,6 +377,8 @@ def should_sync(ticket: dict) -> bool:
 def sync_ticket(ticket_id: int) -> bool:
     try:
         ticket = fetch_ticket_by_id(ticket_id)
+        if should_skip_title(ticket.get("title", "")):
+            return True
         if not should_sync(ticket):
             return True
 
@@ -419,6 +454,10 @@ def run_sync(limit: int = None):
                 continue
 
             if is_synced(tid):
+                skipped += 1
+                continue
+
+            if should_skip_title(ticket.get("title", "")):
                 skipped += 1
                 continue
 
