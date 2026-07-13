@@ -90,6 +90,18 @@ PATCHEOF
         
         # 2. Strip response_format json_object (LM Studio doesn't support it)
         sed -i 's|kwargs\["response_format"\] = {"type": "json_object"}|kwargs["response_format"] = None|g' "$OPENAI_PY"
+        sed -i 's|kwargs\.setdefault("response_format", {"type": "json_object"})|kwargs.setdefault("response_format", None)|g' "$OPENAI_PY"
+        
+        # 3. Patch utils.py: fix the use_llm_func_with_cache wrapper that re-injects response_format
+        UTILS_PY="/app/lightrag/llm/utils.py"
+        if [ -f "$UTILS_PY" ]; then
+            echo "[entrypoint] Patching $UTILS_PY..."
+            # The wrapper sets response_format={"type": "json_object"} for keyword/extract
+            # We force-set to None to disable the constraint
+            sed -i 's|response_format = {"type": "json_object"}|response_format = None|g' "$UTILS_PY" 2>/dev/null || true
+            # Bypass the _validate_cached_response_format check
+            sed -i 's|response_format is None or response_format.get("type") == "json_object"|False|g' "$UTILS_PY" 2>/dev/null || true
+        fi
         
         # 3. Add enable_thinking=False and max_tokens before the API call
         if ! grep -q "enable_thinking" "$OPENAI_PY"; then
